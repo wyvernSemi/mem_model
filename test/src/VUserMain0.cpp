@@ -53,7 +53,7 @@ extern "C" void VUserMain0()
     }
     else
     {
-        VPrint("Read word 0x%08x\n", rdval);
+        VPrint("Read word  0x%08x\n", rdval);
     }
  
     // Check word writes worked with byte reads
@@ -66,7 +66,7 @@ extern "C" void VUserMain0()
         }
         else
         {
-            VPrint("Read byte 0x%02x\n", read_byte(addr2+idx));
+            VPrint("Read byte  0x%02x\n", read_byte(addr2+idx));
         }
     }
     
@@ -80,7 +80,7 @@ extern "C" void VUserMain0()
         }
         else
         {
-            VPrint("Read byte 0x%02x\n", read_byte(addr2+idx));
+            VPrint("Read hword 0x%02x\n", rdval);
         }
     }
     
@@ -97,7 +97,7 @@ extern "C" void VUserMain0()
     }
     else
     {
-        VPrint("Read word 0x%08x\n", read_word(addr1));
+        VPrint("Read word  0x%08x\n", read_word(addr1));
     }
     
     uint32_t newaddr2val = testdata2;
@@ -112,7 +112,7 @@ extern "C" void VUserMain0()
     }
     else
     {
-        VPrint("Read word 0x%08x\n", read_word(addr2));
+        VPrint("Read word  0x%08x\n", read_word(addr2));
     }
 
     write_byte(addr2 + 2, testdata5);
@@ -124,7 +124,7 @@ extern "C" void VUserMain0()
     }
     else
     {
-        VPrint("Read word 0x%08x\n", read_word(addr2));
+        VPrint("Read word  0x%08x\n", read_word(addr2));
     }
 
     write_byte(addr2 + 1, testdata6);
@@ -136,7 +136,7 @@ extern "C" void VUserMain0()
     }
     else
     {
-        VPrint("Read word 0x%08x\n", read_word(addr2));
+        VPrint("Read word  0x%08x\n", read_word(addr2));
     }
 
     write_byte(addr2 + 0, testdata7);
@@ -148,7 +148,7 @@ extern "C" void VUserMain0()
     }
     else
     {
-        VPrint("Read word 0x%08x\n", read_word(addr2));
+        VPrint("Read word  0x%08x\n", read_word(addr2));
     }
     
     if (error)
