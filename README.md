@@ -4,4 +4,4 @@ The mem_model component is a Verilog simulation test component that allows for a
 
 A direct access API is also provided to allow any other PLI C/C++ code to transfer data directly, without the overhead of simulating bus transactions.
 
-More details can be found i nthe manual---doc/mem_model_manual.pdf.
+More details can be found in the manual---doc/mem_model_manual.pdf.
