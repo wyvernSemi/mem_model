@@ -126,8 +126,7 @@ void WriteRamByteBlock(const uint64_t addr, const PktData_t *data, const int fbe
 
     if ((addr & ~TABLEMASK) != ((addr + length - 1) & ~TABLEMASK))
     {
-        VPrint("WriteRamByteBlock: ***Error --- block write crosses 4K boundary (addr=0x%llx len=0x%x\n", addr, length);
-        //VWrite(PVH_FATAL, 0, 0, node);
+        printf("WriteRamByteBlock: ***Error --- block write crosses 4K boundary (addr=0x%llx len=0x%x\n", addr, length);
     }
 
     // No primary table, so allocate some space for one and initialise
@@ -135,7 +134,7 @@ void WriteRamByteBlock(const uint64_t addr, const PktData_t *data, const int fbe
     {
         if ((PrimaryTable[node] = malloc(TABLESIZE * sizeof(PrimaryTbl_t))) == NULL)
         {
-            VPrint("WriteRamByteBlock: ***Error --- failed to allocate primary table memory\n");
+            printf("WriteRamByteBlock: ***Error --- failed to allocate primary table memory\n");
         }
         InitialisePrimaryTable(PrimaryTable[node]);
     }
@@ -148,7 +147,7 @@ void WriteRamByteBlock(const uint64_t addr, const PktData_t *data, const int fbe
         // If we have searched through the whole table....
         if (pidx == idx)
         {
-            VPrint("WriteRamByteBlock: ***Error --- ran out of primary table space\n");
+            printf("WriteRamByteBlock: ***Error --- ran out of primary table space\n");
         }
     }
 
@@ -165,7 +164,7 @@ void WriteRamByteBlock(const uint64_t addr, const PktData_t *data, const int fbe
     {
         if ((PrimaryTable[node][pidx].p = malloc(TABLESIZE * sizeof(uint32_t *))) == NULL)
         {
-            VPrint("WriteRamByteBlock: ***Error --- failed to allocate secondary table memory\n");
+            printf("WriteRamByteBlock: ***Error --- failed to allocate secondary table memory\n");
             //VWrite(PVH_FATAL, 0, 0, node);
         }
         InitialiseTable(PrimaryTable[node][pidx].p);
@@ -176,7 +175,7 @@ void WriteRamByteBlock(const uint64_t addr, const PktData_t *data, const int fbe
     {
         if (((PrimaryTable[node][pidx].p)[sidx] = malloc(TABLESIZE)) == NULL)
         {
-            VPrint("WriteRamByteBlock: ***Error --- failed to allocate memory\n");
+            printf("WriteRamByteBlock: ***Error --- failed to allocate memory\n");
         }
     }
 
@@ -209,13 +208,12 @@ int ReadRamByteBlock(const uint64_t addr, PktData_t *data, const int length, con
 
     if ((addr & ~TABLEMASK) != ((addr + length-1) & ~TABLEMASK))
     {
-        VPrint("ReadRamByteBlock: ***Error --- block read crosses 4K boundary\n");
-        //VWrite(PVH_FATAL, 0, 0, node);
+        printf("ReadRamByteBlock: ***Error --- block read crosses 4K boundary\n");
     }
 
     if (PrimaryTable[node] == NULL)
     {
-        DebugVPrint("ReadRamByteBlock: ***Error --- reading from uninitialised primary table\n");
+        Debugprintf("ReadRamByteBlock: ***Error --- reading from uninitialised primary table\n");
         return MEM_BAD_STATUS;
     }
 
@@ -227,21 +225,21 @@ int ReadRamByteBlock(const uint64_t addr, PktData_t *data, const int length, con
         // If we searched the whole table...
         if (pidx == idx)
         {
-            VPrint("ReadRamByteBlock: ***Error --- address does not exist in primary table\n");
+            printf("ReadRamByteBlock: ***Error --- address does not exist in primary table\n");
         }
     }
 
     // No secondary table, so flag an error
     if (PrimaryTable[node][pidx].p == NULL)
     {
-        DebugVPrint("ReadRamByteBlock: ***Error --- reading from uninitialised secondary table\n");
+        Debugprintf("ReadRamByteBlock: ***Error --- reading from uninitialised secondary table\n");
         return MEM_BAD_STATUS;
     }
 
     // No memory block allocated, so flag an error
     if ((PrimaryTable[node][pidx].p)[sidx] == NULL)
     {
-        DebugVPrint("ReadRamByteBlock: ***Error --- reading from uninitialised memory block\n");
+        Debugprintf("ReadRamByteBlock: ***Error --- reading from uninitialised memory block\n");
         return MEM_BAD_STATUS;
     }
 
@@ -414,8 +412,6 @@ uint32_t ReadRamWord (const uint64_t addr, const int le, const uint32_t node)
     {
         data |= (buf[i] & 0xff) << (le ? (i*8) : ((3-i)*8));
     }
-
-    //VPrint("ReadRamWord(): addr=0x%08x data=0x%08x\n", addr, data);
 
     return data;
 }

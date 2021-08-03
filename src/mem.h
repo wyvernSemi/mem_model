@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "VUser.h"
 
 // -------------------------------------------------------------------------
 // DEFINES
@@ -28,6 +27,14 @@
 
 #define MEM_BAD_STATUS  1
 #define MEM_GOOD_STATUS 0
+
+#ifdef DEBUG
+# ifndef Debugprintf
+# define Debugprintf printf
+# endif
+#else
+#define Debugprintf(__VA_ARGS_) {}
+#endif
 
 // -------------------------------------------------------------------------
 // TYPEDEFS

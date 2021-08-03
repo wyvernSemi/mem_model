@@ -13,6 +13,7 @@
 #include <cstdint>
 
 extern "C" {
+#include "VUser.h"
 #include "mem_model.h"
 }
 

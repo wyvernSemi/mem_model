@@ -81,7 +81,7 @@ help:
 	@echo "make rungui/gui    Build and run GUI simulation"
 	@echo "make runlog/log    Build and run batch simulation with signal logging"
 	@echo "make waves         Run wave view in free starter ModelSim (to view runlog signals)"
-	@echo "make clean         clean previous build artifacts"
+	@echo "make clean         clean previous build artefacts"
 
 #------------------------------------------------------
 # CLEANING RULES
