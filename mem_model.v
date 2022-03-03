@@ -2,7 +2,7 @@
 //  Title      : Veriog memory model for simulations
 //  Project    : UNKNOWN
 // -----------------------------------------------------------------------------
-//  File       : riscVsim.v
+//  File       : mem_model.v
 //  Author     : Simon Southwell
 //  Created    : 2021-08-01
 //  Standard   : Verilog 2001
@@ -34,99 +34,166 @@
 
 `timescale 1ps/1ps
 
-module mem_model(
-    input             clk,
-    input             rst_n,
+module mem_model
+#(parameter
+  EN_READ_QUEUE                = 0
+)
+(
+  input                        clk,
+  input                        rst_n,
 
-    // Register style slave interface
-    input      [31:0] address,
-    input             write,
-    input      [31:0] writedata,
-    input       [3:0] byteenable,
-    input             read,
-    output reg [31:0] readdata,
-    output reg        readdatavalid,
+  // Register style slave interface
+  input      [31:0]            address,
+  input                        write,
+  input      [31:0]            writedata,
+  input       [3:0]            byteenable,
+  input                        read,
+  output reg [31:0]            readdata,
+  output reg                   readdatavalid,
 
-    // Burst read style slave interface
-    output reg        rx_waitrequest,
-    input      [11:0] rx_burstcount,
-    input      [31:0] rx_address,
-    input             rx_read,
-    output reg [31:0] rx_readdata,
-    output reg        rx_readdatavalid,
+  // Burst read style slave interface
+  output                       rx_waitrequest,
+  input      [11:0]            rx_burstcount,
+  input      [31:0]            rx_address,
+  input                        rx_read,
+  output reg [31:0]            rx_readdata,
+  output reg                   rx_readdatavalid,
 
-    // Burst write style slave interface
-    output reg        tx_waitrequest,
-    input      [11:0] tx_burstcount,
-    input      [31:0] tx_address,
-    input             tx_write,
-    input      [31:0] tx_writedata,
+  // Burst write style slave interface
+  output reg                   tx_waitrequest,
+  input      [11:0]            tx_burstcount,
+  input      [31:0]            tx_address,
+  input                        tx_write,
+  input      [31:0]            tx_writedata,
 
-    // SRAM style write port
-    input             wr_port_valid,
-    input      [31:0] wr_port_data,
-    input      [31:0] wr_port_addr
+  // SRAM style write port
+  input                        wr_port_valid,
+  input      [31:0]            wr_port_data,
+  input      [31:0]            wr_port_addr
 
   );
 
-reg            [31:0] rx_count;
-reg            [31:0] rd_addr;
-reg            [31:0] tx_count;
-reg            [31:0] wr_addr;
-reg            [31:0] readdata_int;
-               
-reg                   rx_readdatavalid_int;
-reg            [31:0] rx_readdata_int;
+// ----------------------------------------------------------------------------
+// Registers
+// ----------------------------------------------------------------------------
+
+reg          [31:0]            rx_count;
+reg          [31:0]            rd_addr;
+reg          [31:0]            tx_count;
+reg          [31:0]            wr_addr;
+reg          [31:0]            readdata_int;
+
+reg                            rx_readdatavalid_int;
+reg          [31:0]            rx_readdata_int;
+reg                            rx_waitrequest_int;
+
+// ----------------------------------------------------------------------------
+// Signal declarations
+// ----------------------------------------------------------------------------
+
+wire                           rx_read_q;
+wire         [11:0]            rx_burstcount_q;
+wire         [31:0]            rx_address_q;
+
+wire                           q_full;
+wire                           q_empty;
+
+// ----------------------------------------------------------------------------
+// Read Command Queue
+// ----------------------------------------------------------------------------
+
+generate
+if (EN_READ_QUEUE != 0)
+begin
+  mem_model_q
+  #(
+    .DEPTH                     (8),
+    .WIDTH                     (32+12)
+  ) mem_model_q_i
+  (
+    .clk                       (clk),
+    .reset_n                   (rst_n),
+
+    .clr                       (1'b0),
+
+    .write                     (rx_read),
+    .wdata                     ({rx_burstcount, rx_address}),
+
+    .read                      (rx_read_q & ~rx_waitrequest_int),
+    .rdata                     ({rx_burstcount_q, rx_address_q}),
+
+    .empty                     (q_empty),
+    .full                      (q_full),
+    .nearly_full               ()
+  );
+
+  assign rx_read_q             = ~q_empty;
+  assign rx_waitrequest        = q_full;
+end
+else
+begin
+
+  // When not using a read command queue, wire the input command put straight through
+  assign rx_read_q             = rx_read;
+  assign rx_burstcount_q       = rx_burstcount;
+  assign rx_address_q          = rx_address;
+  assign rx_waitrequest        = rx_waitrequest_int;
+end
+endgenerate
+
+
+// ----------------------------------------------------------------------------
+// Synchronous Logic
+// ----------------------------------------------------------------------------
 
 always @(posedge clk or negedge rst_n)
 begin
   if (rst_n == 1'b0)
   begin
 
-    rx_count                 <= 32'h00000000;
-    rd_addr                  <= 32'h00000000;
+    rx_count                   <= 32'h00000000;
+    rd_addr                    <= 32'h00000000;
 
-    tx_count                 <= 32'h00000000;
-    wr_addr                  <= 32'h00000000;
+    tx_count                   <= 32'h00000000;
+    wr_addr                    <= 32'h00000000;
 
-    tx_waitrequest           <= 1'b0;
-    rx_waitrequest           <= 1'b0;
-    rx_readdatavalid         <= 1'b0;
-    rx_readdatavalid_int     <= 1'b0;
+    tx_waitrequest             <= 1'b0;
+    rx_waitrequest_int         <= 1'b0;
+    rx_readdatavalid           <= 1'b0;
+    rx_readdatavalid_int       <= 1'b0;
 
-    readdata                 <= 32'h00000000;
-    readdatavalid            <= 1'b0;
+    readdata                   <= 32'h00000000;
+    readdatavalid              <= 1'b0;
   end
   else
   begin
 
-
     // Default some of the outputs
-    readdata                 = 32'h00000000;
-    
-    // Update the output valid signal wit that calculated last cycle
-    rx_readdatavalid         = rx_readdatavalid_int;
-    
+    readdata                   = 32'h00000000;
+
+    // Update the output valid signal with that calculated last cycle
+    rx_readdatavalid           = rx_readdatavalid_int;
+
     // read data is valid (internally) whenever the RX counter is non-zero
-    rx_readdatavalid_int     = rx_count != 32'h00000000;
-    
+    rx_readdatavalid_int       = rx_count != 32'h00000000;
+
     // Update RX bus output with value calculated from last cycle
-    rx_readdata              = rx_readdata_int;
-    
+    rx_readdata                = rx_readdata_int;
+
     // Internal read data is updated from that fetched from model last cycle.
-    rx_readdata_int          = readdata_int;
+    rx_readdata_int            = readdata_int;
 
     // If a slave read, return memory contents
     if (read == 1'b1 && readdatavalid == 1'b0)
     begin
       $memread(address, readdata, byteenable);
-      readdatavalid          = 1'b1;
+      readdatavalid            = 1'b1;
     end
     else
     begin
-      readdatavalid          = 1'b0;
+      readdatavalid            = 1'b0;
     end
-    
+
     @(negedge clk);
 
     // If a slave write, update memory
@@ -135,51 +202,51 @@ begin
       $memwrite(address, writedata, byteenable);
     end
 
-    if (tx_count == 32'h00000000 && rx_count == 32'h00000000)
-    begin
-      rx_waitrequest       = 1'b0;
-    end
-    else
-    begin
-      rx_waitrequest       = 1'b1;
-    end
-    
-    if (rx_count == 32'h00000000 || tx_count != 32'h00000000)
-    begin
-      tx_waitrequest       = 1'b0;
-    end
-    else
-    begin
-      tx_waitrequest       = 1'b1;
-    end
-
     // If a new master read request comes in (and not active),
     // latch the rx_count and address values
-    if (rx_read == 1'b1 && rx_waitrequest == 1'b0)
+    if (rx_read_q == 1'b1 && rx_waitrequest_int == 1'b0)
     begin
        // Load RX count with burst + 1 as we are going to decrement it immediately
-       rx_count            = rx_burstcount + 1;
-       rd_addr             = rx_address;
+       rx_count                = rx_burstcount_q + 1;
+       rd_addr                 = rx_address_q;
     end
 
     // If a new master write request comes in (and not active), latch the tx_count and address values
     if (tx_write == 1'b1 && tx_waitrequest == 1'b0 && tx_count == 0)
     begin
-       tx_count            = tx_burstcount;
-       wr_addr             = tx_address;
+       tx_count                = tx_burstcount;
+       wr_addr                 = tx_address;
+    end
+    
+    if (tx_count == 32'h00000000 && rx_count <= 32'h00000001)
+    begin
+      rx_waitrequest_int       = 1'b0;
+    end
+    else
+    begin
+      rx_waitrequest_int       = 1'b1;
+    end
+
+    if (rx_count == 32'h00000000 || tx_count != 32'h00000000)
+    begin
+      tx_waitrequest           = 1'b0;
+    end
+    else
+    begin
+      tx_waitrequest           = 1'b1;
     end
 
     // If an active read transfer in progress, transfer data
     if (rx_count != 32'h00000000)
     begin
-    
+
       $memread(rd_addr, readdata_int, byteenable);
 
       // Decrement the word count
-      rx_count             = rx_count - 32'h00000001;
+      rx_count                 = rx_count - 32'h00000001;
 
       // Increment the read address
-      rd_addr              = rd_addr  + 32'h00000004;
+      rd_addr                  = rd_addr  + 32'h00000004;
 
     end
 
@@ -187,12 +254,12 @@ begin
     if (tx_write == 1'b1 && tx_waitrequest == 1'b0 && tx_count != 32'h00000000)
     begin
       $memwrite(wr_addr, tx_writedata, byteenable);
-             
+
       // Decrement the word count
-      tx_count             = tx_count - 32'h00000001;
-    
+      tx_count                 = tx_count - 32'h00000001;
+
       // Increment the write address
-      wr_addr              = wr_addr  + 32'h00000004;
+      wr_addr                  = wr_addr  + 32'h00000004;
 
     end
 
