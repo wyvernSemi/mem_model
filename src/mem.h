@@ -28,6 +28,10 @@
 #define MEM_BAD_STATUS  1
 #define MEM_GOOD_STATUS 0
 
+#ifndef VP_MAX_NODES
+#define VP_MAX_NODES 64
+#endif
+
 #ifdef DEBUG
 # ifndef Debugprintf
 # define Debugprintf printf

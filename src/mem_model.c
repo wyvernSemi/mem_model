@@ -18,9 +18,9 @@
 //   Argument 2 is 32 bit return data
 MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 {
-    uint32_t data_int;
+    uint32_t data_int, addr;
     
-#ifndef VPROC_VHDL
+#if !defined(VPROC_VHDL) && !defined(SYSVLOG)
     uint32_t address, be;
 
     // Get address from $memread argument list
@@ -34,29 +34,29 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
     if (be == 0x1 || be == 0x2 || be == 0x4 || be == 0x8)
     {
         // Ensure address is 32 bit aligned, then add bottom bits based on byte enables
-        address = (address & ~0x3UL) | ((be == 0x01) ? 0 : (be == 0x02) ? 1 : (be == 0x04) ? 2 : 3);
+        addr = (address & ~0x3UL) | ((be == 0x01) ? 0 : (be == 0x02) ? 1 : (be == 0x04) ? 2 : 3);
         
         // Get the byte from the memory model
-        data_int = ReadRamByte(address, MEM_MODEL_DEFAULT_NODE);
+        data_int = ReadRamByte(addr, MEM_MODEL_DEFAULT_NODE);
         
         // Place in the correct lane
-        data_int <<= (address & 0x3) * 8;
+        data_int <<= (addr & 0x3) * 8;
     }
     else if (be == 0x3 || be == 0xc)
     {
         // Ensure address is 32 bit aligned, then add bottom bits based on byte enables
-        address = (address & ~0x3UL) | ((be == 0x03) ? 0 : 2);
+        addr = (address & ~0x3UL) | ((be == 0x03) ? 0 : 2);
  
         // Get the half word from the model
-        data_int = ReadRamHWord(address, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
+        data_int = ReadRamHWord(addr, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
         
         // Place in the correct lane
-        data_int <<= (address & 0x3) * 8;
+        data_int <<= (addr & 0x3) * 8;
     }
     else
         data_int = ReadRamWord(address, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
 
-#ifdef VPROC_VHDL
+#if defined(VPROC_VHDL) || defined(SYSVLOG)
     *data = data_int;
 #else
     // Update data argument of $memread with returned read data
@@ -71,7 +71,9 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 //   Argument 2 is 32 bit data
 MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
 {
-#ifndef VPROC_VHDL
+    uint32_t addr;
+    
+#if !defined(VPROC_VHDL) && !defined(SYSVLOG)
     uint32_t address, data, be;
     
     // Get address from $memwrite argument list
@@ -88,25 +90,25 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
     if (be == 0x1 || be == 0x2 || be == 0x4 || be == 0x8)
     {
         // Ensure address is 32 bit aligned, then add bottom bits based on byte enables
-        address = (address & ~0x3UL) | ((be == 0x01) ? 0 : (be == 0x02) ? 1 : (be == 0x04) ? 2 : 3);
+        addr = (address & ~0x3UL) | ((be == 0x01) ? 0 : (be == 0x02) ? 1 : (be == 0x04) ? 2 : 3);
         
-        WriteRamByte(address, data >> ((address & 0x3)*8), MEM_MODEL_DEFAULT_NODE);
+        WriteRamByte(addr, data >> ((addr & 0x3)*8), MEM_MODEL_DEFAULT_NODE);
     }
     else if (be == 0x3 || be == 0xc)
     {
         // Ensure address is 32 bit aligned, then add bottom bits based on byte enables
-        address = (address & ~0x3UL) | ((be == 0x03) ? 0 : 2);
+        addr = (address & ~0x3UL) | ((be == 0x03) ? 0 : 2);
         
-        uint32_t d = data >> ((address & 0x3ULL)*8);
+        uint32_t d = data >> ((addr & 0x3ULL)*8);
         
-        WriteRamHWord(address, d, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
+        WriteRamHWord(addr, d, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
     }
     else
     {
         WriteRamWord(address, data, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
     }
 
-#ifndef VPROC_VHDL
+#if !defined(VPROC_VHDL) && !defined(SYSVLOG)
     return 0;
 #endif
 }

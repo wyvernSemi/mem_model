@@ -86,6 +86,7 @@ reg          [31:0]            readdata_int;
 reg                            rx_readdatavalid_int;
 reg          [31:0]            rx_readdata_int;
 reg                            rx_waitrequest_int;
+reg                            next_rx_waitrequest_int;
 
 // ----------------------------------------------------------------------------
 // Signal declarations
@@ -161,6 +162,7 @@ begin
     rx_waitrequest_int         <= 1'b0;
     rx_readdatavalid           <= 1'b0;
     rx_readdatavalid_int       <= 1'b0;
+    next_rx_waitrequest_int    <= 1'b0;
 
     readdata                   <= 32'h00000000;
     readdatavalid              <= 1'b0;
@@ -182,6 +184,8 @@ begin
 
     // Internal read data is updated from that fetched from model last cycle.
     rx_readdata_int            = readdata_int;
+    
+    rx_waitrequest_int         = next_rx_waitrequest_int;
 
     // If a slave read, return memory contents
     if (read == 1'b1 && readdatavalid == 1'b0)
@@ -220,11 +224,11 @@ begin
     
     if (tx_count == 32'h00000000 && rx_count <= 32'h00000001)
     begin
-      rx_waitrequest_int       = 1'b0;
+      next_rx_waitrequest_int  = 1'b0;
     end
     else
     begin
-      rx_waitrequest_int       = 1'b1;
+      next_rx_waitrequest_int  = 1'b1;
     end
 
     if (rx_count == 32'h00000000 || tx_count != 32'h00000000)

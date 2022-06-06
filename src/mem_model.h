@@ -9,9 +9,14 @@
 #ifndef _MEM_MODEL_H_
 #define _MEM_MODEL_H_
 
+
 #include "string.h"
+#ifndef SYSVLOG
 #include "veriuser.h"
 #include "vpi_user.h"
+#else
+#include "svdpi.h"
+#endif
 #include "mem.h"
 
 #define MEM_MODEL_TF_TBL_SIZE 2
@@ -26,12 +31,12 @@
 #define MEM_MODEL_DEFAULT_ENDIAN    0
 #endif
 
-# ifdef VPROC_VHDL
+# if defined (VPROC_VHDL) || defined(SYSVLOG)
 
 #define MEM_MODEL_TF_TBL
 
-#define MEM_READ_PARAMS    int  address, int* data, int be
-#define MEM_WRITE_PARAMS   int  address, int  data, int be
+#define MEM_READ_PARAMS    const int  address,       int* data, const int be
+#define MEM_WRITE_PARAMS   const int  address, const int  data, const int be
 
 #define MEM_RTN_TYPE       void
 
