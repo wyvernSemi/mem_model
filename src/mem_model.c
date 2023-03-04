@@ -33,7 +33,7 @@ static int getArgs (vpiHandle taskHdl, int value[])
 
     vpi_get_value(argh, &argval);
     value[idx]         = argval.value.integer;
-    
+
     idx++;
 
   }
@@ -54,10 +54,14 @@ static int updateArgs (vpiHandle taskHdl, int value[])
 
   while (argh = vpi_scan(args_iter))
   {
-    argval.format        = vpiIntVal;
-    argval.value.integer = value[idx++];
-    
-    vpi_put_value(argh, &argval, NULL, vpiNoDelay);
+      if (idx == (MEM_MODEL_DATA_ARG-1))
+      {
+          argval.format        = vpiIntVal;
+          argval.value.integer = value[idx];
+
+          vpi_put_value(argh, &argval, NULL, vpiNoDelay);
+      }
+      idx++;
   }
 
   return idx;
@@ -72,27 +76,27 @@ static int updateArgs (vpiHandle taskHdl, int value[])
 MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 {
     uint32_t data_int, addr;
-    
+
 #if !defined(VPROC_VHDL) && !defined(SYSVLOG) && !defined(VPROC_PLI_VPI)
     uint32_t address, be;
 
     // Get address from $memread argument list
     address  = tf_getp(MEM_MODEL_ADDR_ARG);
-    
+
     // Get byte enable fro $memread argument list
     be       = tf_getp(MEM_MODEL_BE_ARG);
 #else
-    
+
 # if defined(VPROC_PLI_VPI)
     uint32_t           address, be;
     vpiHandle          taskHdl;
     int                args[10];
-    
+
     // Obtain a handle to the argument list
     taskHdl            = vpi_handle(vpiSysTfCall, NULL);
 
     getArgs(taskHdl, &args[1]);
-    
+
     address   = args[MEM_MODEL_ADDR_ARG];
     be        = args[MEM_MODEL_BE_ARG];
 # endif
@@ -104,10 +108,10 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
     {
         // Ensure address is 32 bit aligned, then add bottom bits based on byte enables
         addr = (address & ~0x3UL) | ((be == 0x01) ? 0 : (be == 0x02) ? 1 : (be == 0x04) ? 2 : 3);
-        
+
         // Get the byte from the memory model
         data_int = ReadRamByte(addr, MEM_MODEL_DEFAULT_NODE);
-        
+
         // Place in the correct lane
         data_int <<= (addr & 0x3) * 8;
     }
@@ -115,10 +119,10 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
     {
         // Ensure address is 32 bit aligned, then add bottom bits based on byte enables
         addr = (address & ~0x3UL) | ((be == 0x03) ? 0 : 2);
- 
+
         // Get the half word from the model
         data_int = ReadRamHWord(addr, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
-        
+
         // Place in the correct lane
         data_int <<= (addr & 0x3) * 8;
     }
@@ -147,35 +151,33 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
 {
     uint32_t addr;
-    
+
 #if !defined(VPROC_VHDL) && !defined(SYSVLOG) && !defined(VPROC_PLI_VPI)
     uint32_t address, data, be;
-    
+
     // Get address from $memwrite argument list
     address = tf_getp(MEM_MODEL_ADDR_ARG);
-    
+
     // Get write data from $memwrite argument list
     data    = tf_getp(MEM_MODEL_DATA_ARG);
-    
+
      // Get byte enable fro $memwrite argument list
     be      = tf_getp(MEM_MODEL_BE_ARG);
 #else
-    
+
 # if defined(VPROC_PLI_VPI)
     uint32_t           address, data, be;
     vpiHandle          taskHdl;
     int                args[10];
-    
+
     // Obtain a handle to the argument list
     taskHdl            = vpi_handle(vpiSysTfCall, NULL);
 
     getArgs(taskHdl, &args[1]);
-    
+
     address   = args[MEM_MODEL_ADDR_ARG];
     data      = args[MEM_MODEL_DATA_ARG];
     be        = args[MEM_MODEL_BE_ARG];
-    
-    //vpi_printf("MemWrite: addr=%08x data=%08x be=%1x\n", address, data, be);
 # endif
 
 
@@ -186,16 +188,16 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
     {
         // Ensure address is 32 bit aligned, then add bottom bits based on byte enables
         addr = (address & ~0x3UL) | ((be == 0x01) ? 0 : (be == 0x02) ? 1 : (be == 0x04) ? 2 : 3);
-        
+
         WriteRamByte(addr, data >> ((addr & 0x3)*8), MEM_MODEL_DEFAULT_NODE);
     }
     else if (be == 0x3 || be == 0xc)
     {
         // Ensure address is 32 bit aligned, then add bottom bits based on byte enables
         addr = (address & ~0x3UL) | ((be == 0x03) ? 0 : 2);
-        
+
         uint32_t d = data >> ((addr & 0x3ULL)*8);
-        
+
         WriteRamHWord(addr, d, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
     }
     else
