@@ -41,6 +41,8 @@
 #define MEM_RTN_TYPE       void
 
 # else
+    
+#  if !defined(VPROC_PLI_VPI)
 
 #define MEM_MODEL_TF_TBL \
     {usertask, 0, NULL, 0, MemRead,   NULL,  "$memread",   1}, \
@@ -50,6 +52,21 @@
 #define MEM_WRITE_PARAMS   void
 
 #define MEM_RTN_TYPE       int
+
+#  else
+
+#define MEM_MODEL_VPI_TBL \
+  {vpiSysTask, 0, "$memread",     MemRead,     0, 0, 0}, \
+  {vpiSysTask, 0, "$memwrite",    MemWrite,    0, 0, 0}
+
+#define MEM_MODEL_VPI_TBL_SIZE 2
+
+#define MEM_READ_PARAMS   char* userdata
+#define MEM_WRITE_PARAMS  char* userdata
+
+#define MEM_RTN_TYPE int
+
+#  endif
 
 # endif
 

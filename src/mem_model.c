@@ -13,6 +13,59 @@
 
 #include "mem_model.h"
 
+// If not PLI TF, use VPI
+#if defined(VPROC_PLI_VPI)
+
+/////////////////////////////////////////////////////////////
+// Get task arguments using VPI calls
+//
+static int getArgs (vpiHandle taskHdl, int value[])
+{
+  int                  idx = 0;
+  struct t_vpi_value   argval;
+  vpiHandle            argh;
+
+  vpiHandle            args_iter = vpi_iterate(vpiArgument, taskHdl);
+
+  while (argh = vpi_scan(args_iter))
+  {
+    argval.format      = vpiIntVal;
+
+    vpi_get_value(argh, &argval);
+    value[idx]         = argval.value.integer;
+    
+    idx++;
+
+  }
+
+  return idx;
+}
+
+/////////////////////////////////////////////////////////////
+// Update task arguments using VPI calls
+//
+static int updateArgs (vpiHandle taskHdl, int value[])
+{
+  int                 idx = 0;
+  struct t_vpi_value  argval;
+  vpiHandle           argh;
+
+  vpiHandle           args_iter = vpi_iterate(vpiArgument, taskHdl);
+
+  while (argh = vpi_scan(args_iter))
+  {
+    argval.format        = vpiIntVal;
+    argval.value.integer = value[idx++];
+    
+    vpi_put_value(argh, &argval, NULL, vpiNoDelay);
+  }
+
+  return idx;
+}
+
+#endif
+
+/////////////////////////////////////////////////////////////
 // PLI access function for $memread.
 //   Argument 1 is word address
 //   Argument 2 is 32 bit return data
@@ -20,7 +73,7 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 {
     uint32_t data_int, addr;
     
-#if !defined(VPROC_VHDL) && !defined(SYSVLOG)
+#if !defined(VPROC_VHDL) && !defined(SYSVLOG) && !defined(VPROC_PLI_VPI)
     uint32_t address, be;
 
     // Get address from $memread argument list
@@ -28,6 +81,22 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
     
     // Get byte enable fro $memread argument list
     be       = tf_getp(MEM_MODEL_BE_ARG);
+#else
+    
+# if defined(VPROC_PLI_VPI)
+    uint32_t           address, be;
+    vpiHandle          taskHdl;
+    int                args[10];
+    
+    // Obtain a handle to the argument list
+    taskHdl            = vpi_handle(vpiSysTfCall, NULL);
+
+    getArgs(taskHdl, &args[1]);
+    
+    address   = args[MEM_MODEL_ADDR_ARG];
+    be        = args[MEM_MODEL_BE_ARG];
+# endif
+
 #endif
 
     // Get data  from memory model
@@ -59,13 +128,19 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 #if defined(VPROC_VHDL) || defined(SYSVLOG)
     *data = data_int;
 #else
+# if !defined (VPROC_PLI_VPI)
     // Update data argument of $memread with returned read data
     tf_putp (MEM_MODEL_DATA_ARG, data_int);
 
     return 0;
+# else
+    args[MEM_MODEL_DATA_ARG] = data_int;
+    updateArgs(taskHdl, &args[1]);
+# endif
 #endif
 }
 
+/////////////////////////////////////////////////////////////
 // PLI access function for $memwrite.
 //   Argument 1 is word address
 //   Argument 2 is 32 bit data
@@ -73,7 +148,7 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
 {
     uint32_t addr;
     
-#if !defined(VPROC_VHDL) && !defined(SYSVLOG)
+#if !defined(VPROC_VHDL) && !defined(SYSVLOG) && !defined(VPROC_PLI_VPI)
     uint32_t address, data, be;
     
     // Get address from $memwrite argument list
@@ -84,6 +159,26 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
     
      // Get byte enable fro $memwrite argument list
     be      = tf_getp(MEM_MODEL_BE_ARG);
+#else
+    
+# if defined(VPROC_PLI_VPI)
+    uint32_t           address, data, be;
+    vpiHandle          taskHdl;
+    int                args[10];
+    
+    // Obtain a handle to the argument list
+    taskHdl            = vpi_handle(vpiSysTfCall, NULL);
+
+    getArgs(taskHdl, &args[1]);
+    
+    address   = args[MEM_MODEL_ADDR_ARG];
+    data      = args[MEM_MODEL_DATA_ARG];
+    be        = args[MEM_MODEL_BE_ARG];
+    
+    //vpi_printf("MemWrite: addr=%08x data=%08x be=%1x\n", address, data, be);
+# endif
+
+
 #endif
 
     // Update data in memory model
@@ -108,7 +203,7 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
         WriteRamWord(address, data, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
     }
 
-#if !defined(VPROC_VHDL) && !defined(SYSVLOG)
+#if !defined(VPROC_VHDL) && !defined(SYSVLOG) && !defined (VPROC_PLI_VPI)
     return 0;
 #endif
 }
