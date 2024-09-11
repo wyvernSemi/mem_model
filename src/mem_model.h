@@ -27,8 +27,11 @@
 
 #define MEM_MODEL_DEFAULT_NODE      0
 
+#define MEM_MODEL_BE                0
+#define MEM_MODEL_LE                1
+
 #ifndef MEM_MODEL_DEFAULT_ENDIAN
-#define MEM_MODEL_DEFAULT_ENDIAN    0
+#define MEM_MODEL_DEFAULT_ENDIAN    MEM_MODEL_BIGENDIAN
 #endif
 
 # if defined (VPROC_VHDL) || defined(SYSVLOG)
