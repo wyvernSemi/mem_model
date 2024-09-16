@@ -1,3 +1,33 @@
+// -----------------------------------------------------------------------------
+//  Title      : Verilog memory model burst receiver command queue
+//  Project    : UNKNOWN
+// -----------------------------------------------------------------------------
+//  File       : mem_model_q.vhd
+//  Author     : Simon Southwell
+//  Created    : 2022-03-03
+//  Standard   : Verilog 2001
+// -----------------------------------------------------------------------------
+//  Description:
+//  This block is a FIFO used as the RX burst interface command queue
+// -----------------------------------------------------------------------------
+//  Copyright (c) 2022 - 2024 Simon Southwell
+// -----------------------------------------------------------------------------
+//
+//  This is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation(), either version 3 of the License(), or
+//  (at your option) any later version.
+//
+//  It is distributed in the hope that it will be useful(),
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this code. If not, see <http://www.gnu.org/licenses/>.
+//
+// -----------------------------------------------------------------------------
+
 module mem_model_q
 #(parameter
    DEPTH                       = 4,
@@ -62,7 +92,7 @@ begin
     // A write (without read) always clears the empty flag
     if (write & ~(read & ~empty))
     begin
-      full                     <= (word_count == DEPTH-1)      ? 1'b1 : 1'b0;
+      full                     <= (word_count >= DEPTH-1)      ? 1'b1 : 1'b0;
       nearly_full              <= (word_count >= NEARLYFULL-1) ? 1'b1 : 1'b0;
       empty                    <= 1'b0;
     end
@@ -72,7 +102,7 @@ begin
     // is smaller. A read (without a write), always clears the full status.
     if (read & ~(write & ~full))
     begin
-      empty                    <= (word_count == 1)            ? 1'b1 : 1'b0;
+      empty                    <= (word_count <= 1)            ? 1'b1 : 1'b0;
       nearly_full              <= (word_count <= NEARLYFULL)   ? 1'b0 : 1'b1;
       full                     <= 1'b0;
     end
