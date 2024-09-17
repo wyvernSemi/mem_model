@@ -41,56 +41,58 @@ use work.mem_model_pkg.all;
 entity mem_model is
   generic (
     EN_READ_QUEUE         : boolean := false;
-    TX_WR_DATA_WIDTH      : natural range 32 to 128 := 32
+    ADDRWIDTH             : natural range 32 to 128 := 32;
+    DATAWIDTH             : natural range 32 to 128 := 32
   );
   port (
     clk                   : in  std_logic;
     rst_n                 : in  std_logic;
 
     -- Register style slave interface
-    address               : in  std_logic_vector (31 downto 0) := (others => '0');
-    byteenable            : in  std_logic_vector ( 3 downto 0) := (others => '1');
-    write                 : in  std_logic                      := '0';
-    writedata             : in  std_logic_vector (31 downto 0) := (others => '0');
-    read                  : in  std_logic                      := '0';
-    readdata              : out std_logic_vector (31 downto 0);
+    address               : in  std_logic_vector (ADDRWIDTH-1   downto 0) := (others => '0');
+    byteenable            : in  std_logic_vector (DATAWIDTH/8-1 downto 0) := (others => '1');
+    write                 : in  std_logic                                 := '0';
+    writedata             : in  std_logic_vector (DATAWIDTH-1   downto 0) := (others => '0');
+    read                  : in  std_logic                                 := '0';
+    readdata              : out std_logic_vector (DATAWIDTH-1   downto 0);
     readdatavalid         : out std_logic;
 
     -- Burst read style slave interface
     rx_waitrequest        : out std_logic;
-    rx_burstcount         : in  std_logic_vector (11 downto 0) := (others => '0');
-    rx_address            : in  std_logic_vector (31 downto 0) := (others => '0');
-    rx_read               : in  std_logic                      := '0';
-    rx_readdata           : out std_logic_vector (31 downto 0) := (others => '0');
+    rx_burstcount         : in  std_logic_vector (11 downto 0)            := (others => '0');
+    rx_address            : in  std_logic_vector (ADDRWIDTH-1 downto 0)   := (others => '0');
+    rx_read               : in  std_logic                                 := '0';
+    rx_readdata           : out std_logic_vector (DATAWIDTH-1 downto 0)   := (others => '0');
     rx_readdatavalid      : out std_logic;
 
     -- Burst write style slave interface
     tx_waitrequest        : out std_logic;
     tx_burstcount         : in  std_logic_vector (11 downto 0) := 12x"0";
-    tx_address            : in  std_logic_vector (31 downto 0) := 32x"0";
-    tx_write              : in  std_logic                      := '0';
-    tx_writedata          : in  std_logic_vector (TX_WR_DATA_WIDTH-1 downto 0) := (others => '0');
+    tx_address            : in  std_logic_vector (ADDRWIDTH-1 downto 0)   := (others => '0');
+    tx_write              : in  std_logic                                 := '0';
+    tx_writedata          : in  std_logic_vector (DATAWIDTH-1 downto 0)   := (others => '0');
 
     -- SRAM style write port
     wr_port_valid         : in  std_logic                      := '0';
-    wr_port_data          : in  std_logic_vector (31 downto 0) := 32x"0";
-    wr_port_addr          : in  std_logic_vector (31 downto 0) := 32x"0"
+    wr_port_data          : in  std_logic_vector (DATAWIDTH-1 downto 0) := (others => '0');
+    wr_port_addr          : in  std_logic_vector (ADDRWIDTH-1 downto 0) := (others => '0')
   );
 end entity;
 
 architecture model of mem_model is
 
 constant ALL_BYTES_EN         : integer := 16#F#;
+constant NUM_BITS_IN_WORD     : integer := 32;
 
 signal rx_read_q              : std_logic;
 signal rx_burstcount_q        : std_logic_vector (11 downto 0);
-signal rx_address_q           : std_logic_vector (31 downto 0);
+signal rx_address_q           : std_logic_vector (ADDRWIDTH-1 downto 0);
 signal rx_waitrequest_q       : std_logic;
 
 signal q_full                 : std_logic;
 signal q_empty                : std_logic;
-signal q_rdata                : std_logic_vector (32+12-1 downto 0);
-signal q_wdata                : std_logic_vector (32+12-1 downto 0);
+signal q_rdata                : std_logic_vector (ADDRWIDTH+12-1 downto 0);
+signal q_wdata                : std_logic_vector (ADDRWIDTH+12-1 downto 0);
 signal q_read                 : std_logic;
 
 begin
@@ -100,7 +102,7 @@ GEN_Q : if EN_READ_QUEUE = true generate
   mem_model_q_i : entity work.mem_model_q
   generic map (
     DEPTH                     => 8,
-    WIDTH                     => 32+12
+    WIDTH                     => DATAWIDTH+12
   )
   port map (
     clk                       => clk,
@@ -121,8 +123,8 @@ GEN_Q : if EN_READ_QUEUE = true generate
 
   rx_read_q                   <= not q_empty;
   rx_waitrequest              <= q_full;
-  rx_burstcount_q             <= q_rdata(32+12-1 downto 32);
-  rx_address_q                <= q_rdata(31 downto 0);
+  rx_burstcount_q             <= q_rdata(ADDRWIDTH+12-1 downto ADDRWIDTH);
+  rx_address_q                <= q_rdata(ADDRWIDTH-1 downto 0);
   q_read                      <= rx_read_q and not rx_waitrequest_q;
   q_wdata                     <= rx_burstcount & rx_address;
 
@@ -141,12 +143,12 @@ end generate;
 
     variable readdata_int         : integer;
     variable rx_readdatavalid_int : std_logic;
-    variable rx_readdata_int      : std_logic_vector(31 downto 0) := (others => '0');
+    variable rx_readdata_int      : std_logic_vector(DATAWIDTH-1 downto 0) := (others => '0');
     variable readdata_rx          : integer;
     variable rd_addr              : integer;
     variable wr_addr              : integer;
-    variable rx_count             : integer := 0;
-    variable tx_count             : integer := 0;
+    variable rx_count             : integer   := 0;
+    variable tx_count             : integer   := 0;
     variable rx_waitrequest_int   : std_logic := '0';
     variable tx_waitrequest_int   : std_logic := '0';
   begin
@@ -170,7 +172,7 @@ end generate;
         rx_readdatavalid         <='0';
         rx_readdatavalid_int     :='0';
 
-        readdata                 <= 32x"00000000";
+        readdata                 <= (others => '0');
         readdatavalid            <= '0';
 
       else
@@ -193,14 +195,14 @@ end generate;
         rx_readdata              <= rx_readdata_int;
 
         -- Internal read data is updated from that fetched from model last cycle.
-        rx_readdata_int          := std_logic_vector(to_signed(readdata_rx, 32));
+        rx_readdata_int          := std_logic_vector(to_signed(readdata_rx, DATAWIDTH));
 
         -- If a slave read, return memory contents
         if read = '1'  and readdatavalid = '0' then
           MemRead(to_integer(signed(address)), readdata_int, to_integer(unsigned(byteenable)));
           readdatavalid          <= '1';
         end if;
-        readdata                 <= std_logic_vector(to_signed(readdata_int, 32));
+        readdata                 <= std_logic_vector(to_signed(readdata_int, DATAWIDTH));
 
         -- wait until the negative edge of the clock
         wait until clk'event and clk = '0';
@@ -241,7 +243,7 @@ end generate;
         if rx_count /= 0 then
 
           MemRead(rd_addr, readdata_rx, ALL_BYTES_EN);
-          readdata               <= std_logic_vector(to_signed(readdata_rx, 32));
+          readdata               <= std_logic_vector(to_signed(readdata_rx, DATAWIDTH));
 
           -- Decrement the word count
           rx_count               := rx_count - 1;
@@ -257,9 +259,9 @@ end generate;
         -- If an active write transfer in progress, transfer data
         if tx_write = '1' and tx_waitrequest_int = '0' and tx_count /= 0 then
 
-          for i in TX_WR_DATA_WIDTH/32-1 downto 0 loop
+          for i in DATAWIDTH/NUM_BITS_IN_WORD-1 downto 0 loop
 
-            MemWrite(wr_addr, to_integer(signed(tx_writedata(i*32+31 downto i*32))), ALL_BYTES_EN);
+            MemWrite(wr_addr, to_integer(signed(tx_writedata(i*DATAWIDTH+DATAWIDTH-1 downto i*DATAWIDTH))), ALL_BYTES_EN);
 
             -- Increment the write address
             wr_addr              := wr_addr  + 4;
