@@ -8,7 +8,7 @@
 --  Standard   : VHDL 2008
 -- -----------------------------------------------------------------------------
 --  Description:
---  This block is a Verilog wrapper around a C/C++ based memory model with
+--  This block is a VHDL wrapper around a C/C++ based memory model with
 --  various style memory ports, for use in simulations. The full 32 bit address
 --  space is available, with the underlying model dynamically allocating memory
 --  blocks as they are accessed. It accesses the underlying C model via the
@@ -40,6 +40,7 @@ use work.mem_model_pkg.all;
 
 entity mem_model is
   generic (
+    EN_READ_QUEUE         : boolean := false;
     TX_WR_DATA_WIDTH      : natural range 32 to 128 := 32
   );
   port (
@@ -70,7 +71,7 @@ entity mem_model is
     tx_write              : in  std_logic                      := '0';
     tx_writedata          : in  std_logic_vector (TX_WR_DATA_WIDTH-1 downto 0) := (others => '0');
 
-    -- SRAM style write por
+    -- SRAM style write port
     wr_port_valid         : in  std_logic                      := '0';
     wr_port_data          : in  std_logic_vector (31 downto 0) := 32x"0";
     wr_port_addr          : in  std_logic_vector (31 downto 0) := 32x"0"
@@ -79,24 +80,75 @@ end entity;
 
 architecture model of mem_model is
 
-  constant ALL_BYTES_EN               : integer := 16#F#;
+constant ALL_BYTES_EN         : integer := 16#F#;
+
+signal rx_read_q              : std_logic;
+signal rx_burstcount_q        : std_logic_vector (11 downto 0);
+signal rx_address_q           : std_logic_vector (31 downto 0);
+signal rx_waitrequest_q       : std_logic;
+
+signal q_full                 : std_logic;
+signal q_empty                : std_logic;
+signal q_rdata                : std_logic_vector (32+12-1 downto 0);
+signal q_wdata                : std_logic_vector (32+12-1 downto 0);
+signal q_read                 : std_logic;
 
 begin
 
+GEN_Q : if EN_READ_QUEUE = true generate
+
+  mem_model_q_i : entity work.mem_model_q
+  generic map (
+    DEPTH                     => 8,
+    WIDTH                     => 32+12
+  )
+  port map (
+    clk                       => clk,
+    reset_n                   => rst_n,
+
+    clr                       => '0',
+
+    write                     => rx_read,
+    wdata                     => q_wdata,
+
+    read                      => q_read,
+    rdata                     => q_rdata,
+
+    empty                     => q_empty,
+    full                      => q_full,
+    nearly_full               => open
+  );
+
+  rx_read_q                   <= not q_empty;
+  rx_waitrequest              <= q_full;
+  rx_burstcount_q             <= q_rdata(32+12-1 downto 32);
+  rx_address_q                <= q_rdata(31 downto 0);
+  q_read                      <= rx_read_q and not rx_waitrequest_q;
+  q_wdata                     <= rx_burstcount & rx_address;
+
+else generate
+
+  -- When not using a read command queue, wire the command signals straight through
+  rx_read_q                   <= rx_read;
+  rx_burstcount_q             <= rx_burstcount;
+  rx_address_q                <= rx_address;
+  rx_waitrequest              <= rx_waitrequest_q;
+
+end generate;
 
   -- Update process
   pUPDATE : process
 
-    variable readdata_int             : integer;
-    variable rx_readdatavalid_int     : std_logic;
-    variable rx_readdata_int          : std_logic_vector(31 downto 0) := (others => '0');
-    variable readdata_rx              : integer;
-    variable rd_addr                  : integer;
-    variable wr_addr                  : integer;
-    variable rx_count                 : integer := 0;
-    variable tx_count                 : integer := 0;
-    variable rx_waitrequest_int       : std_logic := '0';
-    variable tx_waitrequest_int       : std_logic := '0';
+    variable readdata_int         : integer;
+    variable rx_readdatavalid_int : std_logic;
+    variable rx_readdata_int      : std_logic_vector(31 downto 0) := (others => '0');
+    variable readdata_rx          : integer;
+    variable rd_addr              : integer;
+    variable wr_addr              : integer;
+    variable rx_count             : integer := 0;
+    variable tx_count             : integer := 0;
+    variable rx_waitrequest_int   : std_logic := '0';
+    variable tx_waitrequest_int   : std_logic := '0';
   begin
 
     while true loop
@@ -114,7 +166,7 @@ begin
         wr_addr                  := 0;
 
         tx_waitrequest           <='0';
-        rx_waitrequest           <='0';
+        rx_waitrequest_q         <='0';
         rx_readdatavalid         <='0';
         rx_readdatavalid_int     :='0';
 
@@ -163,7 +215,7 @@ begin
         else
           rx_waitrequest_int     := '1';
         end if;
-        rx_waitrequest           <= rx_waitrequest_int;
+        rx_waitrequest_q         <= rx_waitrequest_int;
 
         if rx_count = 0 or tx_count /= 0 then
           tx_waitrequest_int     := '0';
@@ -173,10 +225,10 @@ begin
         tx_waitrequest           <= tx_waitrequest_int;
 
         -- If a new master read request comes in (and not active), latch the rx_count and address values
-        if rx_read = '1' and rx_waitrequest_int = '0' then
+        if rx_read_q = '1' and rx_waitrequest_int = '0' then
            -- Load RX count with burst + 1 as we are going to decrement it immediately
-           rx_count              := to_integer(signed(rx_burstcount) + 1);
-           rd_addr               := to_integer(signed(rx_address));
+           rx_count              := to_integer(signed(rx_burstcount_q) + 1);
+           rd_addr               := to_integer(signed(rx_address_q));
         end if;
 
         -- If a new master write request comes in (and not active), latch the tx_count and address values
