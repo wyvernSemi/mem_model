@@ -1,7 +1,7 @@
 ###################################################################
 # Makefile for memory model test bench
 #
-# Copyright (c) 2021 Simon Southwell
+# Copyright (c) 2021 - 2024 Simon Southwell
 #
 ###################################################################
 
@@ -15,13 +15,13 @@ USERCODE           = VUserMain0.cpp mem_vproc_api.cpp
 
 # Set up Variables for tools
 MAKE_EXE           = make
-VSIMEXE            = ${MODEL_TECH}\\vsim
+VSIMEXE            = vsim
 VSIMARGS           =
-MEMMODELDIR        = ../mem_model
+MEMMODELDIR        = ${CURDIR}/../src
 
 VPROCDIR           = ../../vproc
 
-USRCFLAGS          = "-I${MEMMODELDIR}/src  -DINCL_VLOG_MEM_MODEL -DMEM_MODEL_DEFAULT_ENDIAN=1"
+USRCFLAGS          = "-I${MEMMODELDIR} -DINCL_VLOG_MEM_MODEL -DMEM_MODEL_DEFAULT_ENDIAN=1"
 
 MEMCSRC            = mem.c mem_model.c
 
@@ -36,12 +36,14 @@ all:vproc
 # needs building.
 .PHONY : vproc
 vproc:
-	@${MAKE_EXE} ${CURDIR}/VProc.so             \
-                 -C ${VPROCDIR}                 \
+	@${MAKE_EXE} --no-print-directory           \
+                 ${CURDIR}/VProc.so             \
+                 -C ${VPROCDIR}/test            \
                  USRFLAGS=${USRCFLAGS}          \
                  USRCDIR=${CURDIR}/src          \
                  USER_C="${USERCODE}"           \
-                 MEMMODELDIR=${MEMMODELDIR}/src \
+                 MEMMODELDIR=${MEMMODELDIR}     \
+                 PLIVERSION=""                  \
                  MEM_C="${MEMCSRC}"             \
                  TESTDIR=${CURDIR}              \
                  MODELSIMDIR="${MODEL_TECH}\.."
@@ -88,7 +90,7 @@ help:
 #------------------------------------------------------
 
 clean:
-	@${MAKE_EXE} -C ${VPROCDIR} USER_C="${USERCODE}" TESTDIR="${CURDIR}" clean
+	@${MAKE_EXE} --no-print-directory -C ${VPROCDIR}/test USER_C="${USERCODE}" TESTDIR="${CURDIR}" clean
 	@rm -rf "wlf*"
 	@rm -rf "work"
 	@rm -rf transcript
