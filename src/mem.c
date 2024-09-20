@@ -173,7 +173,11 @@ void WriteRamByteBlock(const uint64_t addr, const PktData_t *data, const int fbe
     // No memory block allocated, so allocate some space
     if ((PrimaryTable[node][pidx].p)[sidx] == NULL)
     {
+#ifdef MEM_ZERO_NEW_PAGES
+        if (((PrimaryTable[node][pidx].p)[sidx] = calloc(TABLESIZE, 1)) == NULL)
+#else
         if (((PrimaryTable[node][pidx].p)[sidx] = malloc(TABLESIZE)) == NULL)
+#endif     
         {
             printf("WriteRamByteBlock: ***Error --- failed to allocate memory\n");
         }
