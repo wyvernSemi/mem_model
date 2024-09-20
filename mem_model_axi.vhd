@@ -50,11 +50,11 @@ port (
     awaddr                    : in  std_logic_vector (ADDRWIDTH-1 downto 0);
     awvalid                   : in  std_logic := '0';
     awready                   : out std_logic;
+    awlen                     : in  std_logic_vector (7 downto 0) := 8x"0";
     
-      -- Unused at the moment
+    -- Unused/fixed at the moment
     awburst                   : in  std_logic_vector (1 downto 0) := "01";
     awsize                    : in  std_logic_vector (2 downto 0) := std_logic_vector(to_unsigned(integer(ceil(log2(real(DATAWIDTH/8)))), 3));
-    awlen                     : in  std_logic_vector (7 downto 0) := 8x"0";
     awid                      : in  std_logic_vector (ID_W_WIDTH-1 downto 0) := (others => '0');
 
     -- Write Data channel
@@ -72,11 +72,11 @@ port (
     araddr                    : in  std_logic_vector (ADDRWIDTH-1 downto 0);
     arvalid                   : in  std_logic;
     arready                   : out std_logic;
+    arlen                     : in  std_logic_vector (7 downto 0) := 8x"0";
     
-      -- Unused at the moment
+      -- Unused/fixed at the moment
     arburst                   : in  std_logic_vector (1 downto 0) := "01";
     arsize                    : in  std_logic_vector (2 downto 0) := std_logic_vector(to_unsigned(integer(ceil(log2(real(DATAWIDTH/4)))), 3));
-    arlen                     : in  std_logic_vector (7 downto 0) := 8x"0";
     arid                      : in  std_logic_vector (ID_R_WIDTH-1 downto 0) := (others => '0');
 
     -- Read data/response channel
@@ -90,13 +90,20 @@ end entity;
 
 architecture behavioural of mem_model_axi is
 
-signal av_address             : std_logic_vector (31 downto 0);
+signal av_rx_address          : std_logic_vector (31 downto 0);
+signal av_tx_address          : std_logic_vector (31 downto 0);
 signal av_byteenable          : std_logic_vector ( 3 downto 0);
 signal av_write               : std_logic;
 signal av_writedata           : std_logic_vector (31 downto 0);
 signal av_read                : std_logic;
 signal av_readdata            : std_logic_vector (31 downto 0);
 signal av_readdatavalid       : std_logic;
+signal av_rx_waitrequest      : std_logic := '0';
+signal av_tx_waitrequest      : std_logic := '0';
+signal av_rx_burstcount       : std_logic_vector (11 downto 0) := 12d"1";
+signal av_tx_burstcount       : std_logic_vector (11 downto 0) := 12d"1";
+signal tx_burst_counter       : unsigned (11 downto 0)         := to_unsigned(0, 12);
+signal rx_burst_counter       : unsigned (11 downto 0)         := to_unsigned(0, 12);
 
 signal aw_q_full              : std_logic;
 signal aw_q_empty             : std_logic;
@@ -114,10 +121,9 @@ signal w_q_empty              : std_logic;
 signal w_q_wdata              : std_logic_vector (DATAWIDTH+DATAWIDTH/8-1 downto 0);
 signal w_q_rdata              : std_logic_vector (DATAWIDTH+DATAWIDTH/8-1 downto 0);
 
-signal rnw_arb                : std_logic;
-signal last_rnw               : std_logic := '0';
 signal hold_rvalid            : std_logic := '0';
 signal hold_rdata             : std_logic_vector (DATAWIDTH-1 downto 0);
+
 begin
 
 -- ---------------------------------------------------------
@@ -143,24 +149,69 @@ rdata                         <= hold_rdata when hold_rvalid = '1' else av_readd
 
 -- Read valid when data memory read valid, or read response stalled
 rvalid                        <= av_readdatavalid or hold_rvalid;
-rlast                         <= rvalid;
+rlast                         <= '1' when rvalid = '1' and to_integer(rx_burst_counter) <= 1 else '0';
 
 -- MEMORY ACCESS LOGIC --
 
--- Select a read if a read command ready and not a write command ready
--- and read was the last access type.
-rnw_arb                       <= not ar_q_empty and not (not aw_q_empty and not w_q_empty and last_rnw);
+av_rx_address                 <= ar_q_rdata (ADDRWIDTH-1 downto 0);
+av_rx_burstcount              <= "0000" & std_logic_vector(unsigned (ar_q_rdata (ADDRWIDTH+12 downto ADDRWIDTH+5)) + 1);
 
-av_address                    <= aw_q_rdata (ADDRWIDTH-1 downto 0)                     when rnw_arb = '0' else ar_q_rdata (ADDRWIDTH-1 downto 0);
-av_byteenable                 <= w_q_rdata  (DATAWIDTH+DATAWIDTH/8-1 downto DATAWIDTH) when rnw_arb = '0' else (others => '1') ;
+av_tx_address                 <= aw_q_rdata (ADDRWIDTH-1 downto 0);
+av_tx_burstcount              <= "0000" & std_logic_vector(unsigned (aw_q_rdata (ADDRWIDTH+12 downto ADDRWIDTH+5)) + 1);
 
+av_byteenable                 <= w_q_rdata  (DATAWIDTH+DATAWIDTH/8-1 downto DATAWIDTH);
 av_writedata                  <= w_q_rdata  (DATAWIDTH-1 downto 0);
 
--- Write if arbitration selecting writes, and write address/data ready and not stalled on write response
-av_write                      <= not rnw_arb and not aw_q_empty and not w_q_empty and not (bvalid and not bready);
+-- Write if a write address/data ready and not stalled on write response
+av_write                      <= not aw_q_empty and not w_q_empty and not (bvalid and not bready) and not av_tx_waitrequest;
 
--- Read if arbitration selecting reads, and a read ready to go and not stalled on read response
-av_read                       <= rnw_arb and not ar_q_empty and not (rvalid and not rready);
+-- Read if a read ready to go and not stalled on read response
+av_read                       <= not ar_q_empty and not (rvalid and not rready) and not av_rx_waitrequest;
+
+-- ---------------------------------------------------------
+-- Synchronous process
+-- ---------------------------------------------------------
+
+process(clk)
+  variable tx_burst_cnt_1    : std_logic := '0';
+  variable av_tx_burst_cnt_1 : std_logic := '0';
+begin
+  if clk'event and clk = '1' then
+  
+    tx_burst_cnt_1              := '1' when to_integer(tx_burst_counter) = 1 else '0';
+    av_tx_burst_cnt_1           := '1' when to_integer(unsigned(av_tx_burstcount)) = 1 else '0';
+    
+    -- Set bvalid when written to memory, and hold until bready asserted
+    bvalid                      <= ((av_write and (tx_burst_cnt_1 or av_tx_burst_cnt_1)) or (bvalid and not bready)) and nreset;
+
+    -- Held rvalid if read response port stalled
+    hold_rvalid                 <= rvalid and not rready and nreset;
+
+    -- Hold the memory read data
+    hold_rdata                  <= av_readdata when av_readdatavalid = '1' else hold_rdata;
+    
+    -- Decrement the burst counter when memory written and not 0
+    if av_write = '1' and to_integer(tx_burst_counter) > 0 then
+      tx_burst_counter          <= tx_burst_counter - 1;
+    end if;
+    
+    -- if a new write of a burst, set burst counter to burst length
+    -- less one (to account for this first write).    
+    if av_write = '1' and to_integer(tx_burst_counter) = 0 then
+      tx_burst_counter          <= unsigned(av_tx_burstcount) - 1;
+    end if;
+    
+    if rvalid = '1' and rready = '1' and to_integer(rx_burst_counter) > 0 then
+      rx_burst_counter          <= rx_burst_counter - 1;
+    end if;
+    
+    if av_read = '1' and to_integer(rx_burst_counter) = 0 then
+      rx_burst_counter          <= unsigned(av_rx_burstcount);
+    end if;
+
+  end if;
+end process;
+
 
 -- ---------------------------------------------------------
 -- Write address queue
@@ -247,53 +298,32 @@ av_read                       <= rnw_arb and not ar_q_empty and not (rvalid and 
     clk                       => clk,
     rst_n                     => nreset,
 
-    address                   => av_address,
-    byteenable                => av_byteenable,
-    write                     => av_write,
-    writedata                 => av_writedata,
-    read                      => av_read,
-    readdata                  => av_readdata,
-    readdatavalid             => av_readdatavalid,
+    address                   => (others => '0'),
+    byteenable                => (others => '0'),
+    write                     => '0',
+    writedata                 => (others => '0'),
+    read                      => '0',
+    readdata                  => open,
+    readdatavalid             => open,
 
-    rx_waitrequest            => open,
-    rx_burstcount             => (others => '0'),
-    rx_address                => (others => '0'),
-    rx_read                   => '0',
-    rx_readdata               => open,
-    rx_readdatavalid          => open,
+    rx_waitrequest            => av_rx_waitrequest,
+    rx_burstcount             => av_rx_burstcount,
+    rx_address                => av_rx_address,
+    rx_read                   => av_read,
+    rx_readdata               => av_readdata,
+    rx_readdatavalid          => av_readdatavalid,
 
-    tx_waitrequest            => open,
-    tx_burstcount             => (others => '0'),
-    tx_address                => (others => '0'),
-    tx_write                  => '0',
-    tx_writedata              => (others => '0'),
+    tx_waitrequest            => av_tx_waitrequest,
+    tx_burstcount             => av_tx_burstcount,
+    tx_address                => av_tx_address,
+    tx_write                  => av_write,
+    tx_byteenable             => av_byteenable,
+    tx_writedata              => av_writedata,
 
     wr_port_valid             => '0',
     wr_port_data              => (others => '0'),
     wr_port_addr              => (others => '0')
 
   );
-
--- ---------------------------------------------------------
--- Synchronous process
--- ---------------------------------------------------------
-
-process(clk)
-begin
-  if clk'event and clk = '1' then
-    -- Set bvalid when written to memory, and hold until bready asserted
-    bvalid                      <= (av_write or (bvalid and not bready)) and nreset;
-
-    -- Last access read-not-write status set on read to memory and held, cleared on a write
-    last_rnw                    <= (last_rnw or av_read) and not av_write and nreset;
-    
-    -- Held rvalid if read response port stalled 
-    hold_rvalid                 <= rvalid and not rready and nreset;
-    
-    -- Hold the memory read data
-    hold_rdata                  <= av_readdata when av_readdatavalid = '1' else hold_rdata;
-    
-  end if;
-end process;
 
 end behavioural;

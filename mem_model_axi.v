@@ -45,11 +45,11 @@ module mem_model_axi
     input  [ADDRWIDTH-1:0]    awaddr,
     input                     awvalid,
     output                    awready,
+    input  [7:0]              awlen,
 
-      // Unused at the moment
+      // Unused/fixed at the moment
     input  [1:0]              awburst,
     input  [2:0]              awsize,
-    input  [7:0]              awlen,
     input  [ID_W_WIDTH-1:0]   awid,
 
     // Write Data channel
@@ -67,11 +67,11 @@ module mem_model_axi
     input  [ADDRWIDTH-1:0]    araddr,
     input                     arvalid,
     output                    arready,
-
-    // Unused at the moment
+    input  [7:0]              arlen,
+    
+    // Unused/fixed at the moment
     input  [1:0]              arburst,
     input  [2:0]              arsize,
-    input  [7:0]              arlen,
     input  [ID_R_WIDTH-1:0]   arid,
 
     // Read data/response channel
@@ -82,13 +82,19 @@ module mem_model_axi
     output [ID_R_WIDTH-1:0]   rid
 );
 
-wire [31:0]                           av_address;
+wire [31:0]                           av_rx_address;
+wire [31:0]                           av_tx_address;
 wire [3:0]                            av_byteenable;
 wire                                  av_write;
 wire [31:0]                           av_writedata;
 wire                                  av_read;
 wire [31:0]                           av_readdata;
 wire                                  av_readdatavalid;
+wire                                  av_rx_waitrequest;
+wire                                  av_tx_waitrequest;
+wire [11:0]                           av_rx_burstcount;
+wire [11:0]                           av_tx_burstcount;
+reg  [11:0]                           tx_burst_counter;
 
 wire                                  aw_q_full;
 wire                                  aw_q_empty;
@@ -106,17 +112,13 @@ wire                                  w_q_empty;
 wire [DATAWIDTH+DATAWIDTH/8-1:0]      w_q_wdata;
 wire [DATAWIDTH+DATAWIDTH/8-1:0]      w_q_rdata;
 
-wire                                  rnw_arb;
-
-reg                                   last_rnw;
 reg                                   hold_rvalid;
 reg  [DATAWIDTH-1:0]                  hold_rdata;
-
 
 initial
 begin
   bvalid                      <= 1'b0;
-  last_rnw                    <= 1'b0;
+  tx_burst_counter            <= 12'h000;
 end
 
 // ---------------------------------------------------------
@@ -148,20 +150,20 @@ assign rlast                  = rvalid;
 
 // MEMORY ACCESS LOGIC
 
-// Select a read if a read command ready and not a write command ready
-// and read was the last access type.
-assign rnw_arb                = ~ar_q_empty & ~(~aw_q_empty & ~w_q_empty & last_rnw);
+assign av_rx_address          = ar_q_rdata[ADDRWIDTH-1:0];
+assign av_rx_burstcount       = {4'h0, ar_q_rdata[ADDRWIDTH+12:ADDRWIDTH+5]} + 12'h001;
 
-assign av_address             = (rnw_arb == 1'b0) ? aw_q_rdata[ADDRWIDTH-1:0] : ar_q_rdata[ADDRWIDTH-1:0];
-assign av_byteenable          = (rnw_arb == 1'b0) ?  w_q_rdata[DATAWIDTH+DATAWIDTH/8-1:DATAWIDTH] : {DATAWIDTH/8{1'b1}} ;
+assign av_tx_address          =  aw_q_rdata[ADDRWIDTH-1:0];
+assign av_tx_burstcount       = {4'h0, aw_q_rdata[ADDRWIDTH+12:ADDRWIDTH+5]} + 12'h001;
 
+assign av_byteenable          = w_q_rdata[DATAWIDTH+DATAWIDTH/8-1:DATAWIDTH];
 assign av_writedata           = w_q_rdata[DATAWIDTH-1:0];
 
-// Write if arbitration selecting writes, and write address/data ready and not stalled on write response
-assign av_write               = ~rnw_arb & ~aw_q_empty & ~w_q_empty & ~(bvalid & ~bready);
+// Write if a write address/data ready and not stalled on write response
+assign av_write               = ~aw_q_empty & ~w_q_empty & ~(bvalid & ~bready) & ~av_tx_waitrequest;
 
-// Read if arbitration selecting reads, and a read ready to go and not stalled on read response
-assign av_read                = rnw_arb & ~ar_q_empty & ~(rvalid & ~rready);
+// Read if a read ready to go and not stalled on read response
+assign av_read                = ~ar_q_empty & ~(rvalid & ~rready) & ~av_rx_waitrequest;
 
 // ---------------------------------------------------------
 // Synchronous process
@@ -169,18 +171,29 @@ assign av_read                = rnw_arb & ~ar_q_empty & ~(rvalid & ~rready);
 
 always @(posedge clk)
 begin
+  
   // Set bvalid when written to memory, and hold until bready asserted
-  bvalid                      <= (av_write | (bvalid & ~bready)) & nreset;
-
-  // Last access read-not-write status set on read to memory and held, cleared on a write
-  last_rnw                    <= (last_rnw | av_read) & ~av_write & nreset;
+  bvalid                      <= ((av_write & (tx_burst_counter == 1 | av_tx_burstcount == 1)) | (bvalid & ~bready)) & nreset;
 
   // Held rvalid if read response port stalled
   hold_rvalid                 <= rvalid & ~rready & nreset;
 
   // Hold the memory read data
   hold_rdata                  <= (av_readdatavalid == 1'b1) ? av_readdata : hold_rdata;
-
+  
+  // Decrement the burst counter when memory written and not 0
+  if (av_write == 1'b1 && tx_burst_counter > 0)
+  begin
+    tx_burst_counter          <= tx_burst_counter - 1;
+  end
+  
+  // if a new write of a burst, set burst counter to burst length
+  // less one (to account for this first write).    
+  if (av_write == 1'b1 && tx_burst_counter == 0)
+  begin
+    tx_burst_counter          <= av_tx_burstcount - 1;
+  end
+  
 end
 
 // ---------------------------------------------------------
@@ -267,28 +280,29 @@ end
     .clk                      (clk),
     .rst_n                    (nreset),
 
-    .address                  (av_address),
-    .byteenable               (av_byteenable),
-    .write                    (av_write),
-    .writedata                (av_writedata),
-    .read                     (av_read),
-    .readdata                 (av_readdata),
-    .readdatavalid            (av_readdatavalid),
+    .address                  ({ADDRWIDTH{1'b0}}),
+    .byteenable               ({DATAWIDTH/8{1'b0}}),
+    .write                    (1'b0),
+    .writedata                ({DATAWIDTH{1'b0}}),
+    .read                     (1'b0),
+    .readdata                 (),
+    .readdatavalid            (),
 
-    .rx_waitrequest           (open),
-    .rx_burstcount            (12'h0),
-    .rx_address               ({ADDRWIDTH{1'b0}}),
-    .rx_read                  (1'b0),
-    .rx_readdata              (),
-    .rx_readdatavalid         (),
+    .rx_waitrequest           (av_rx_waitrequest),
+    .rx_burstcount            (av_rx_burstcount),
+    .rx_address               (av_rx_address),
+    .rx_read                  (av_read),
+    .rx_readdata              (av_readdata),
+    .rx_readdatavalid         (av_readdatavalid),
 
-    .tx_waitrequest           (),
-    .tx_burstcount            (12'h0),
-    .tx_address               ({ADDRWIDTH{1'b0}}),
-    .tx_write                 (1'b0),
-    .tx_writedata             ({DATAWIDTH{1'b0}}),
+    .tx_waitrequest           (av_tx_waitrequest),
+    .tx_burstcount            (av_tx_burstcount),
+    .tx_address               (av_tx_address),
+    .tx_write                 (av_write),
+    .tx_writedata             (av_writedata),
+    .tx_byteenable            (av_byteenable),
 
-    .wr_port_valid            (),
+    .wr_port_valid            (1'b0),
     .wr_port_data             ({DATAWIDTH{1'b0}}),
     .wr_port_addr             ({ADDRWIDTH{1'b0}})
   );
