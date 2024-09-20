@@ -66,6 +66,10 @@ module mem_model
   input                        tx_write,
   input      [31:0]            tx_writedata,
 
+`ifdef MEM_EN_TX_BYTEENABLE
+  input       [3:0]            tx_byteenable,
+`endif
+
   // SRAM style write port
   input                        wr_port_valid,
   input      [31:0]            wr_port_data,
@@ -99,6 +103,9 @@ wire         [31:0]            rx_address_q;
 wire                           q_full;
 wire                           q_empty;
 
+`ifndef MEM_EN_TX_BYTEENABLE
+wire          [3:0]            tx_byteenable = 4'hf;
+`endif
 // ----------------------------------------------------------------------------
 // Read Command Queue
 // ----------------------------------------------------------------------------
@@ -257,7 +264,7 @@ begin
     // If an active write transfer in progress, transfer data
     if (tx_write == 1'b1 && tx_waitrequest == 1'b0 && tx_count != 32'h00000000)
     begin
-      $memwrite(wr_addr, tx_writedata, byteenable);
+      $memwrite(wr_addr, tx_writedata, tx_byteenable);
 
       // Decrement the word count
       tx_count                 = tx_count - 32'h00000001;

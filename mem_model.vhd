@@ -70,6 +70,7 @@ entity mem_model is
     tx_burstcount         : in  std_logic_vector (11 downto 0) := 12x"0";
     tx_address            : in  std_logic_vector (ADDRWIDTH-1 downto 0)   := (others => '0');
     tx_write              : in  std_logic                                 := '0';
+    tx_byteenable         : in  std_logic_vector (DATAWIDTH/8-1 downto 0) := (others => '1');
     tx_writedata          : in  std_logic_vector (DATAWIDTH-1 downto 0)   := (others => '0');
 
     -- SRAM style write port
@@ -261,7 +262,7 @@ end generate;
 
           for i in DATAWIDTH/NUM_BITS_IN_WORD-1 downto 0 loop
 
-            MemWrite(wr_addr, to_integer(signed(tx_writedata(i*DATAWIDTH+DATAWIDTH-1 downto i*DATAWIDTH))), ALL_BYTES_EN);
+            MemWrite(wr_addr, to_integer(signed(tx_writedata(i*DATAWIDTH+DATAWIDTH-1 downto i*DATAWIDTH))), to_integer(unsigned(tx_byteenable)));
 
             -- Increment the write address
             wr_addr              := wr_addr  + 4;
