@@ -8,6 +8,10 @@ The mem_model component is a Verilog/VHDL simulation test component that allows 
 
 A direct access API is also provided to allow any other PLI C/C++ code to transfer data directly, without the overhead of simulating bus transactions (see <tt>src/mem.h</tt>). Wrapper HDL is also provided to map the ports to an AXI subordinate interface (<tt>mem_model_axi.v</tt> and <tt>mem_model_axi.vhd</tt>). The default memory mapped slave port and burst ports are Altera Avalon bus compatible.
 
-By default memory is uninitialised but, if compiled with <tt>MEM_ZERO_NEW PAGES</tt> defined, memory will be initialised with zeros. By default, the model is big endian, but this can be overridden by defining <tt>MEM_MODEL_DEFAULT_ENDIAN=1</tt>.
+By default memory is uninitialised but, if compiled with <tt>MEM_ZERO_NEW_PAGES</tt> defined, memory will be initialised with zeros. By default, the model is big endian, but this can be overridden by defining <tt>MEM_MODEL_DEFAULT_ENDIAN=1</tt>.
+
+The model's software can be compiled for supporting various HDL languages, with the default being Verilog and using the PLI programming interface. To compile for the VPI interface, <tt>MEM_MODEL_PLI_VPI</tt> should be defined when compiling the <tt>mem_model.c</tt> code. When using VHDL then <tt>MEM_MODEL_VHDL</tt> should be defined. If using the SystemVerilog model then <tt>MEM_MODEL_SV</tt> should be defined. The model's code, when used with VProc, will also recognise the VProc definitions (<tt>VPROC_PLI_VPI</tt>, <tt>VPROC_VHDL</tt>, and <tt>VPROC_SV</tt>) and if these are defined when compiling the code, then the <tt>MEM_MODEL_XXX</tt> definitions do not need to be set which are needed only when compiling as a standalone model.
+
+If using Verilog or SystemVerilog models, then the <tt>tx_byteenable</tt> port is enabled by defining <tt>MEM_EN_TX_BYTEENABLE</tt> when analysing either <tt>mem_model.v</tt> or <tt>mem_model.sv</tt>.
 
 More details can be found in the manual&mdash;<tt>doc/mem_model_manual.pdf</tt>.

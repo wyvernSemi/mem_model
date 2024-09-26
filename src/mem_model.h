@@ -9,14 +9,26 @@
 #ifndef _MEM_MODEL_H_
 #define _MEM_MODEL_H_
 
-
-#include "string.h"
-#ifndef SYSVLOG
-#include "veriuser.h"
-#include "vpi_user.h"
-#else
-#include "svdpi.h"
+#if defined(MEM_MODEL_VHDL) && !defined(VPROC_VHDL)
+#define VPROC_VHDL
 #endif
+
+#if defined(MEM_MODEL_SV) && !defined(VPROC_SV)
+#define VPROC_SV
+#endif
+
+#if defined(MEM_MODEL_PLI_VPI) && !defined(VPROC_PLI_VPI)
+#define VPROC_PLI_VPI
+#endif
+
+#if !defined(VPROC_VHDL)
+# include "string.h"
+# if !defined(VPROC_SV)
+# include "veriuser.h"
+# include "vpi_user.h"
+# endif
+#endif
+
 #include "mem.h"
 
 #define MEM_MODEL_TF_TBL_SIZE 2
@@ -34,7 +46,7 @@
 #define MEM_MODEL_DEFAULT_ENDIAN    MEM_MODEL_BE
 #endif
 
-# if defined (VPROC_VHDL) || defined(SYSVLOG)
+# if defined (VPROC_VHDL) || defined(VPROC_SV)
 
 #define MEM_MODEL_TF_TBL
 

@@ -77,7 +77,7 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 {
     uint32_t data_int, addr;
 
-#if !defined(VPROC_VHDL) && !defined(SYSVLOG) && !defined(VPROC_PLI_VPI)
+#if !defined(VPROC_VHDL) && !defined(VPROC_SV) && !defined(VPROC_PLI_VPI)
     uint32_t address, be;
 
     // Get address from $memread argument list
@@ -129,7 +129,7 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
     else
         data_int = ReadRamWord(address, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
 
-#if defined(VPROC_VHDL) || defined(SYSVLOG)
+#if defined(VPROC_VHDL) || defined(VPROC_SV)
     *data = data_int;
 #else
 # if !defined (VPROC_PLI_VPI)
@@ -152,7 +152,7 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
 {
     uint32_t addr;
 
-#if !defined(VPROC_VHDL) && !defined(SYSVLOG) && !defined(VPROC_PLI_VPI)
+#if !defined(VPROC_VHDL) && !defined(VPROC_SV) && !defined(VPROC_PLI_VPI)
     uint32_t address, data, be;
 
     // Get address from $memwrite argument list
@@ -205,7 +205,7 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
         WriteRamWord(address, data, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
     }
 
-#if !defined(VPROC_VHDL) && !defined(SYSVLOG) && !defined (VPROC_PLI_VPI)
+#if !defined(VPROC_VHDL) && !defined(VPROC_SV) && !defined (VPROC_PLI_VPI)
     return 0;
 #endif
 }

@@ -32,7 +32,20 @@
 //
 // -----------------------------------------------------------------------------
 
+`ifdef MEM_MODEL_SV
+`include "mem_model_dpi.vh"
+
+`define MEMREAD               MemRead
+`define MEMWRITE              MemWrite
+
+`else
+
 `timescale 1ps/1ps
+
+`define MEMREAD               $memread
+`define MEMWRITE              $memwrite
+
+`endif
 
 module mem_model
 #(parameter
@@ -197,7 +210,7 @@ begin
     // If a slave read, return memory contents
     if (read == 1'b1 && readdatavalid == 1'b0)
     begin
-      $memread(address, readdata, byteenable);
+      `MEMREAD(address, readdata, byteenable);
       readdatavalid            = 1'b1;
     end
     else
@@ -210,7 +223,7 @@ begin
     // If a slave write, update memory
     if (write == 1'b1)
     begin
-      $memwrite(address, writedata, byteenable);
+      `MEMWRITE(address, writedata, byteenable);
     end
 
     // If a new master read request comes in (and not active),
@@ -251,7 +264,7 @@ begin
     if (rx_count != 32'h00000000)
     begin
 
-      $memread(rd_addr, readdata_int, byteenable);
+      `MEMREAD(rd_addr, readdata_int, byteenable);
 
       // Decrement the word count
       rx_count                 = rx_count - 32'h00000001;
@@ -264,7 +277,7 @@ begin
     // If an active write transfer in progress, transfer data
     if (tx_write == 1'b1 && tx_waitrequest == 1'b0 && tx_count != 32'h00000000)
     begin
-      $memwrite(wr_addr, tx_writedata, tx_byteenable);
+      `MEMWRITE(wr_addr, tx_writedata, tx_byteenable);
 
       // Decrement the word count
       tx_count                 = tx_count - 32'h00000001;
@@ -277,7 +290,7 @@ begin
     // If a write port access valid, write data
     if (wr_port_valid == 1'b1)
     begin
-      $memwrite(wr_port_addr, wr_port_data, byteenable);
+      `MEMWRITE(wr_port_addr, wr_port_data, byteenable);
     end
   end
 end
