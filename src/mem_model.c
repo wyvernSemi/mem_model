@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "mem_model.h"
+#include "mem_model_pli.h"
 
 // If not PLI TF, use VPI
 #if defined(VPROC_PLI_VPI)
