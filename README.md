@@ -14,4 +14,39 @@ The model's software can be compiled for supporting various HDL languages, with 
 
 If using Verilog or SystemVerilog models, then the <tt>tx_byteenable</tt> port is enabled by defining <tt>MEM_EN_TX_BYTEENABLE</tt> when analysing either <tt>mem_model.v</tt> or <tt>mem_model.sv</tt>.
 
+## Summary of HDL files and minimum compile options for each simulator
+
+| Simulator        | HDL files                      | C compilation definitions                 |
+|:-----------------|:-------------------------------|:------------------------------------------|
+| Questa Verilog   | <tt>mem_model_q.v</tt>         | <tt>[-DMEM_MODEL_PLI_VPI]</tt>            |
+|                  | <tt>mem_model.v</tt>           |                                           |
+|                  | <tt>[mem_model_axi.v]</tt>     |                                           |
+|                  |                                |                                           |
+| Icarus Verilog   | <tt>mem_model_q.v</tt>         |                                           |
+|                  | <tt>mem_model.v</tt>           |                                           |
+|                  | <tt>[mem_model_axi.v]</tt>     |                                           |
+|                  |                                |                                           |
+| Verilator        | <tt>mem_model_q.v</tt>         | <tt>-DMEM_MODEL_SV</tt>                   |
+|                  | <tt>mem_model.sv</tt>          |                                           |
+|                  | <tt>[mem_model_axi.sv]</tt>    |                                           |
+|                  |                                |                                           |
+| Vivado xsim      | <tt>mem_model_q.v</tt>         | <tt>-DMEM_MODEL_SV</tt>                   |
+|                  | <tt>mem_model.sv</tt>          |                                           |
+|                  | <tt>[mem_model_axi.sv]</tt>    |                                           |
+|                  |                                |                                           |
+| Questa VHDL      | <tt>mem_model_pkg.vhd</tt>     | <tt>-DMEM_MODEL_VHDL</tt>                 |
+|                  | <tt>mem_model_q.vhd</tt>       |                                           |
+|                  | <tt>mem_model.vhd</tt>         |                                           |
+|                  | <tt>[mem_model_axi.vhd]</tt>   |                                           |
+|                  |                                |                                           |
+| NVC              | <tt>mem_model_pkg_nvc.vhd</tt> | <tt>-DMEM_MODEL_VHDL</tt>                 |
+|                  | <tt>mem_model_q.vhd</tt>       |                                           |
+|                  | <tt>mem_model.vhd</tt>         |                                           |
+|                  | <tt>[mem_model_axi.vhd]</tt>   |                                           |
+|                  |                                |                                           |
+| GHDL             | <tt>mem_model_pkg_ghdl.vhd</tt>| <tt>-DMEM_MODEL_VHDL</tt>                 |
+|                  | <tt>mem_model_q.vhd</tt>       |                                           |
+|                  | <tt>mem_model.vhd</tt>         |                                           |
+|                  | <tt>[mem_model_axi.vhd]</tt>   |                                           |
+
 More details can be found in the manual&mdash;<tt>doc/mem_model_manual.pdf</tt>.
