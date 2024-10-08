@@ -49,7 +49,8 @@
 
 module mem_model
 #(parameter
-  EN_READ_QUEUE                = 0
+  EN_READ_QUEUE                = 0,
+  REG_READ_OVERLAP             = 0
 )
 (
   input                        clk,
@@ -208,7 +209,7 @@ begin
     rx_waitrequest_int         = next_rx_waitrequest_int;
 
     // If a slave read, return memory contents
-    if (read == 1'b1 && readdatavalid == 1'b0)
+    if (read == 1'b1 && (readdatavalid == 1'b0 || REG_READ_OVERLAP))
     begin
       `MEMREAD(address, readdata, byteenable);
       readdatavalid            = 1'b1;

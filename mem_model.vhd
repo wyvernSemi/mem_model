@@ -41,6 +41,7 @@ use work.mem_model_pkg.all;
 entity mem_model is
   generic (
     EN_READ_QUEUE         : boolean := false;
+    REG_READ_OVERLAP      : boolean := false;
     ADDRWIDTH             : natural range 32 to 128 := 32;
     DATAWIDTH             : natural range 32 to 128 := 32
   );
@@ -199,7 +200,7 @@ end generate;
         rx_readdata_int          := std_logic_vector(to_signed(readdata_rx, DATAWIDTH));
 
         -- If a slave read, return memory contents
-        if read = '1'  and readdatavalid = '0' then
+        if read = '1'  and (readdatavalid = '0' or REG_READ_OVERLAP) then
           MemRead(to_integer(signed(address)), readdata_int, to_integer(unsigned(byteenable)));
           readdatavalid          <= '1';
         end if;
