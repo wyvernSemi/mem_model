@@ -11,8 +11,6 @@
 
 # ifdef MEM_MODEL_INTERNAL_PLI
 
-#  if defined(VPROC_PLI_VPI) || defined (MEM_MODEL_PLI_VPI)
-
 // -------------------------------------------------------------------------
 // register_vpi_tasks()
 //
@@ -21,7 +19,7 @@
 
 static void register_vpi_tasks()
 {
-    s_vpi_systf_data data[] =
+    s_vpi_systf_data data[] = {
        MEM_MODEL_VPI_TBL
       };
 
@@ -42,32 +40,6 @@ void (*vlog_startup_routines[])() =
     register_vpi_tasks,
     0
 };
-
-#  else
-
-char *veriuser_version_str = "Memory Model Copyright (c) 2021-2024 Simon Southwell.";
-
-s_tfcell veriusertfs[] =
-{
-    MEM_MODEL_TF_TBL
-    {0} 
-};
-
-p_tfcell bootstrap ()
-{
-    return veriusertfs;
-}
-
-#   ifdef ICARUS
-static void veriusertfs_register(void)
-{
-    veriusertfs_register_table(veriusertfs);
-}
-
-void (*vlog_startup_routines[])() = { &veriusertfs_register, 0 };
-#   endif
-
-#  endif
 
 # endif
 

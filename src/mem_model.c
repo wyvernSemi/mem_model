@@ -14,8 +14,7 @@
 #include "mem_model.h"
 #include "mem_model_pli.h"
 
-// If not PLI TF, use VPI
-#if defined(VPROC_PLI_VPI)
+#if !defined(VPROC_VHDL) && !defined(VPROC_SV)
 
 /////////////////////////////////////////////////////////////
 // Get task arguments using VPI calls
@@ -78,17 +77,8 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 {
     uint32_t data_int, addr;
 
-#if !defined(VPROC_VHDL) && !defined(VPROC_SV) && !defined(VPROC_PLI_VPI)
-    uint32_t address, be;
+#if !defined(VPROC_VHDL) && !defined(VPROC_SV)
 
-    // Get address from $memread argument list
-    address  = tf_getp(MEM_MODEL_ADDR_ARG);
-
-    // Get byte enable fro $memread argument list
-    be       = tf_getp(MEM_MODEL_BE_ARG);
-#else
-
-# if defined(VPROC_PLI_VPI)
     uint32_t           address, be;
     vpiHandle          taskHdl;
     int                args[10];
@@ -100,7 +90,6 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 
     address   = args[MEM_MODEL_ADDR_ARG];
     be        = args[MEM_MODEL_BE_ARG];
-# endif
 
 #endif
 
@@ -133,15 +122,10 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 #if defined(VPROC_VHDL) || defined(VPROC_SV)
     *data = data_int;
 #else
-# if !defined (VPROC_PLI_VPI)
-    // Update data argument of $memread with returned read data
-    tf_putp (MEM_MODEL_DATA_ARG, data_int);
 
-    return 0;
-# else
     args[MEM_MODEL_DATA_ARG] = data_int;
     updateArgs(taskHdl, &args[1]);
-# endif
+
 #endif
 }
 
@@ -153,20 +137,7 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
 {
     uint32_t addr;
 
-#if !defined(VPROC_VHDL) && !defined(VPROC_SV) && !defined(VPROC_PLI_VPI)
-    uint32_t address, data, be;
-
-    // Get address from $memwrite argument list
-    address = tf_getp(MEM_MODEL_ADDR_ARG);
-
-    // Get write data from $memwrite argument list
-    data    = tf_getp(MEM_MODEL_DATA_ARG);
-
-     // Get byte enable fro $memwrite argument list
-    be      = tf_getp(MEM_MODEL_BE_ARG);
-#else
-
-# if defined(VPROC_PLI_VPI)
+#if !defined(VPROC_VHDL) && !defined(VPROC_SV)
     uint32_t           address, data, be;
     vpiHandle          taskHdl;
     int                args[10];
@@ -179,8 +150,6 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
     address   = args[MEM_MODEL_ADDR_ARG];
     data      = args[MEM_MODEL_DATA_ARG];
     be        = args[MEM_MODEL_BE_ARG];
-# endif
-
 
 #endif
 
@@ -206,7 +175,4 @@ MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
         WriteRamWord(address, data, MEM_MODEL_DEFAULT_ENDIAN, MEM_MODEL_DEFAULT_NODE);
     }
 
-#if !defined(VPROC_VHDL) && !defined(VPROC_SV) && !defined (VPROC_PLI_VPI)
-    return 0;
-#endif
 }
