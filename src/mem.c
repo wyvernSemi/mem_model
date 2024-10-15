@@ -126,7 +126,7 @@ void WriteRamByteBlock(const uint64_t addr, const PktData_t *data, const int fbe
 
     if ((addr & ~TABLEMASK) != ((addr + length - 1) & ~TABLEMASK))
     {
-        printf("WriteRamByteBlock: ***Error --- block write crosses 4K boundary (addr=0x%llx len=0x%x\n", addr, length);
+        printf("WriteRamByteBlock: ***Error --- block write crosses 4K boundary (addr=0x%llx len=0x%x\n", (long long unsigned)addr, length);
     }
 
     // No primary table, so allocate some space for one and initialise
