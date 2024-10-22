@@ -47,7 +47,7 @@ module mem_model_axi
     output                    awready,
     input  [7:0]              awlen,
 
-      // Unused/fixed at the moment
+    // Unused/fixed at the moment
     input  [1:0]              awburst,
     input  [2:0]              awsize,
     input  [ID_W_WIDTH-1:0]   awid,
@@ -95,6 +95,7 @@ wire                                  av_tx_waitrequest;
 wire [11:0]                           av_rx_burstcount;
 wire [11:0]                           av_tx_burstcount;
 reg  [11:0]                           tx_burst_counter;
+reg  [11:0]                           rx_burst_counter;
 
 wire                                  aw_q_full;
 wire                                  aw_q_empty;
@@ -119,6 +120,7 @@ initial
 begin
   bvalid                      <= 1'b0;
   tx_burst_counter            <= 12'h000;
+  rx_burst_counter            <= 12'h000;
 end
 
 // ---------------------------------------------------------
@@ -146,7 +148,7 @@ assign rdata                  = (hold_rvalid == 1'b1)      ? hold_rdata  :
 
 // Read valid when data memory read valid, or read response stalled
 assign rvalid                 = av_readdatavalid | hold_rvalid;
-assign rlast                  = rvalid;
+assign rlast                  = rvalid & (rx_burst_counter <= 1);
 
 // MEMORY ACCESS LOGIC
 
@@ -169,31 +171,54 @@ assign av_read                = ~ar_q_empty & ~(rvalid & ~rready) & ~av_rx_waitr
 // Synchronous process
 // ---------------------------------------------------------
 
+`ifdef VERILATOR
+always @(negedge clk)
+`else
 always @(posedge clk)
+`endif
 begin
-  
-  // Set bvalid when written to memory, and hold until bready asserted
-  bvalid                      <= ((av_write & (tx_burst_counter == 1 | av_tx_burstcount == 1)) | (bvalid & ~bready)) & nreset;
 
-  // Held rvalid if read response port stalled
-  hold_rvalid                 <= rvalid & ~rready & nreset;
-
-  // Hold the memory read data
-  hold_rdata                  <= (av_readdatavalid == 1'b1) ? av_readdata : hold_rdata;
-  
-  // Decrement the burst counter when memory written and not 0
-  if (av_write == 1'b1 && tx_burst_counter > 0)
+  if (nreset == 1'b0)
   begin
-    tx_burst_counter          <= tx_burst_counter - 1;
+    bvalid                    <= 1'b0;
+    hold_rvalid               <= 1'b0;
+    tx_burst_counter          <= 12'h000;    
+    rx_burst_counter          <= 12'h000;    
   end
-  
-  // if a new write of a burst, set burst counter to burst length
-  // less one (to account for this first write).    
-  if (av_write == 1'b1 && tx_burst_counter == 0)
+  else
   begin
-    tx_burst_counter          <= av_tx_burstcount - 1;
+    // Set bvalid when written to memory, and hold until bready asserted
+    bvalid                    <= ((av_write & (tx_burst_counter == 1 | av_tx_burstcount == 1)) | (bvalid & ~bready)) & nreset;
+    
+    // Hold rvalid if read response port stalled
+    hold_rvalid               <= rvalid & ~rready & nreset;
+    
+    // Hold the memory read data
+    hold_rdata                <= (av_readdatavalid == 1'b1) ? av_readdata : hold_rdata;
+    
+    if (av_readdatavalid && rx_burst_counter > 0)
+    begin
+      rx_burst_counter        <= rx_burst_counter - 1;
+    end
+    
+    if (av_read && rx_burst_counter <= 1)
+    begin
+      rx_burst_counter        <= av_rx_burstcount + 1;
+    end
+    
+    // Decrement the burst counter when memory written and not 0
+    if (av_write == 1'b1 && tx_burst_counter > 0)
+    begin
+      tx_burst_counter        <= tx_burst_counter - 1;
+    end
+    
+    // if a new write of a burst, set burst counter to burst length
+    // less one (to account for this first write).    
+    if (av_write == 1'b1 && tx_burst_counter == 0)
+    begin
+      tx_burst_counter        <= av_tx_burstcount - 1;
+    end
   end
-  
 end
 
 // ---------------------------------------------------------
@@ -294,7 +319,9 @@ end
     .rx_read                  (av_read),
     .rx_readdata              (av_readdata),
     .rx_readdatavalid         (av_readdatavalid),
-
+`ifdef MEM_MODEL_STALL_RX
+    .rx_stall                 (~rready),
+`endif
     .tx_waitrequest           (av_tx_waitrequest),
     .tx_burstcount            (av_tx_burstcount),
     .tx_address               (av_tx_address),

@@ -66,8 +66,8 @@ always @(posedge clk or negedge reset_n)
 begin
   if (reset_n == 1'b0)
   begin
-    wptr                       <= {LOG2DEPTH{1'b0}};
-    rptr                       <= {LOG2DEPTH{1'b0}};
+    wptr                       <= {LOG2DEPTH+1{1'b0}};
+    rptr                       <= {LOG2DEPTH+1{1'b0}};
     empty                      <= 1'b1;
     full                       <= 1'b0;
     nearly_full                <= 1'b0;

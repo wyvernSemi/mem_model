@@ -72,6 +72,10 @@ module mem_model
   input                        rx_read,
   output reg [31:0]            rx_readdata,
   output reg                   rx_readdatavalid,
+  
+`ifdef MEM_MODEL_STALL_RX
+  input                        rx_stall,
+`endif
 
   // Burst write style slave interface
   output reg                   tx_waitrequest,
@@ -119,6 +123,10 @@ wire                           q_empty;
 
 `ifndef MEM_EN_TX_BYTEENABLE
 wire          [3:0]            tx_byteenable = 4'hf;
+`endif
+
+`ifndef MEM_MODEL_STALL_RX
+wire                           rx_stall = 1'b0;
 `endif
 // ----------------------------------------------------------------------------
 // Read Command Queue
@@ -262,7 +270,7 @@ begin
     end
 
     // If an active read transfer in progress, transfer data
-    if (rx_count != 32'h00000000)
+    if (rx_count != 32'h00000000 && rx_stall == 1'b0)
     begin
 
       `MEMREAD(rd_addr, readdata_int, byteenable);
