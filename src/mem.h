@@ -22,6 +22,10 @@
 // DEFINES
 // -------------------------------------------------------------------------
 
+#define MEM_VERSION_MAJOR   1
+#define MEM_VERSION_MINOR   0
+#define MEM_VERSION_PATCH   0
+
 #define TABLESIZE      (4096UL)
 #define TABLEMASK      (TABLESIZE-1)
 
