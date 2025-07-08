@@ -41,14 +41,14 @@ package mem_model_pkg is
     data      : in  integer;
     be        : in  integer
   );
-  attribute foreign of MemWrite : procedure is "MemWrite VProc.so";
+  attribute foreign of MemWrite : procedure is "MemModelWrite VProc.so";
 
   procedure MemRead (
     address   : in  integer;
     data      : out integer;
     be        : in  integer
   );
-  attribute foreign of MemRead : procedure is "MemRead VProc.so";
+  attribute foreign of MemRead : procedure is "MemModelRead VProc.so";
 
 end;
 

@@ -73,7 +73,7 @@ static int updateArgs (vpiHandle taskHdl, int value[])
 // PLI access function for $memread.
 //   Argument 1 is word address
 //   Argument 2 is 32 bit return data
-MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
+MEM_RTN_TYPE MemModelRead (MEM_READ_PARAMS)
 {
     uint32_t data_int, addr;
 
@@ -133,7 +133,7 @@ MEM_RTN_TYPE MemRead (MEM_READ_PARAMS)
 // PLI access function for $memwrite.
 //   Argument 1 is word address
 //   Argument 2 is 32 bit data
-MEM_RTN_TYPE MemWrite (MEM_WRITE_PARAMS)
+MEM_RTN_TYPE MemModelWrite (MEM_WRITE_PARAMS)
 {
     uint32_t addr;
 

@@ -41,14 +41,14 @@ package mem_model_pkg is
     data      : in  integer;
     be        : in  integer
   );
-  attribute foreign of MemWrite : procedure is "VHPIDIRECT MemWrite";
+  attribute foreign of MemWrite : procedure is "VHPIDIRECT MemModelWrite";
 
   procedure MemRead (
     address   : in  integer;
     data      : out integer;
     be        : in  integer
   );
-  attribute foreign of MemRead : procedure is "VHPIDIRECT MemRead";
+  attribute foreign of MemRead : procedure is "VHPIDIRECT MemModelRead";
 
 end;
 

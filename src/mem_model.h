@@ -54,8 +54,8 @@
 # else
 
 #define MEM_MODEL_VPI_TBL \
-  {vpiSysTask, 0, "$memread",     MemRead,     0, 0, 0}, \
-  {vpiSysTask, 0, "$memwrite",    MemWrite,    0, 0, 0}
+  {vpiSysTask, 0, "$memread",     MemModelRead,     0, 0, 0}, \
+  {vpiSysTask, 0, "$memwrite",    MemModelWrite,    0, 0, 0}
 
 #define MEM_MODEL_VPI_TBL_SIZE 2
 
@@ -66,7 +66,7 @@
 
 # endif
 
-extern MEM_RTN_TYPE MemRead     (MEM_READ_PARAMS);
-extern MEM_RTN_TYPE MemWrite    (MEM_WRITE_PARAMS);
+extern MEM_RTN_TYPE MemModelRead     (MEM_READ_PARAMS);
+extern MEM_RTN_TYPE MemModelWrite    (MEM_WRITE_PARAMS);
 
 #endif
