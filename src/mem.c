@@ -291,7 +291,7 @@ void WriteRamHWord (const uint64_t addr, const uint32_t data, const int le, cons
     int i;
 
     addr_lo  =  (int)(addr & 2ULL);
-    fbe      = 0x3 << addr_lo;
+    fbe      = le ? (0x3 << addr_lo) : (0xc >> addr_lo) ;
     data_out = (addr_lo) ? (data << 16) : data;
 
     for (i = 0; i < 4; i++)
@@ -385,12 +385,12 @@ uint32_t ReadRamHWord (const uint64_t addr, const int le, const uint32_t node)
         return 0;
     }
 
-    for (i = addr_lo; i < (2+addr_lo); i++)
+    for (i = 0; i < 4; i++)
     {
         data |= (buf[i] & 0xff) << (le ? (i*8) : ((3-i)*8));
     }
 
-    return (addr_lo) ? (data >> 16) : data;
+    return ((addr_lo) ? (data >> 16) : data) & 0xffff;
 }
 
 // -------------------------------------------------------------------------
